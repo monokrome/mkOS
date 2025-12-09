@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "mkOS Manifest",
+  "type": "object",
+  "properties": {
+    "system": {
+      "type": "object",
+      "properties": {
+        "hostname": { "type": "string" },
+        "timezone": { "type": "string" },
+        "locale": { "type": "string" },
+        "keymap": { "type": "string" }
+      }
+    },
+    "disk": {
+      "type": "object",
+      "properties": {
+        "device": { "type": "string" },
+        "encryption": { "type": "boolean", "default": true },
+        "encryption_type": { "type": "string", "enum": ["luks2"], "default": "luks2" },
+        "filesystem": { "type": "string", "enum": ["btrfs", "ext4"], "default": "btrfs" },
+        "subvolumes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "mountpoint": { "type": "string" }
+            },
+            "required": ["name", "mountpoint"]
+          }
+        }
+      }
+    },
+    "packages": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "services": {
+      "type": "object",
+      "properties": {
+        "enable": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "disable": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "users": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "shell": { "type": "string" },
+          "groups": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "home": { "type": "string" }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "content": { "type": "string" },
+          "source": { "type": "string" },
+          "mode": { "type": "string" }
+        },
+        "required": ["path"]
+      }
+    },
+    "distro": {
+      "type": "string",
+      "enum": ["artix", "void"],
+      "default": "artix"
+    }
+  }
+}

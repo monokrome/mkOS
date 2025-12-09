@@ -1,0 +1,22 @@
+# Build dependencies for dwl
+
+# Compiler toolchain
+base-devel
+gcc
+make
+pkg-config
+
+# dwl/wlroots deps
+wayland-devel
+wayland-protocols
+wlroots-devel
+libinput-devel
+libxkbcommon-devel
+pixman-devel
+libdrm-devel
+xcb-util-wm-devel
+
+# For XWayland support
+libxcb-devel
+xcb-util-devel
+xcb-util-wm-devel

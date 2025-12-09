@@ -1,0 +1,73 @@
+system:
+  hostname: workstation
+  timezone: America/Los_Angeles
+  locale: en_US.UTF-8
+  keymap: us
+
+disk:
+  device: /dev/nvme0n1
+  encryption: true
+  filesystem: btrfs
+  subvolumes:
+    - name: "@"
+      mountpoint: /
+    - name: "@home"
+      mountpoint: /home
+    - name: "@snapshots"
+      mountpoint: /.snapshots
+
+packages:
+  base:
+    - s6-base
+    - linux
+    - linux-firmware
+    - cryptsetup
+    - btrfs-progs
+    - efibootmgr
+    - dracut
+
+  desktop:
+    - greetd
+    - greetd-tuigreet
+    - kitty
+    - rofi-wayland
+    - pipewire
+    - wireplumber
+
+  wayland:
+    - wayland
+    - wlroots
+    - xorg-xwayland
+    - libinput
+    - mesa
+
+  fonts:
+    - ttf-hack
+    - noto-fonts
+    - noto-fonts-emoji
+
+services:
+  enable:
+    - dhcpcd
+    - greetd
+
+users:
+  monokrome:
+    shell: /bin/bash
+    groups:
+      - wheel
+      - video
+      - audio
+      - input
+
+files:
+  - path: /etc/greetd/config.toml
+    content: |
+      [terminal]
+      vt = 1
+
+      [default_session]
+      command = "tuigreet --cmd dwl --time --remember"
+      user = "greeter"
+
+distro: artix

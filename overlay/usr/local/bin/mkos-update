@@ -1,0 +1,89 @@
+#!/bin/bash
+set -euo pipefail
+
+# mkOS system updater with automatic snapshots
+# Distro-agnostic: detects package manager automatically
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+SNAPSHOT="pre-update-$TIMESTAMP"
+
+# Detect package manager
+detect_pkg_manager() {
+    if command -v xbps-install &>/dev/null; then
+        echo "xbps"
+    elif command -v pacman &>/dev/null; then
+        echo "pacman"
+    elif command -v apk &>/dev/null; then
+        echo "apk"
+    elif command -v apt &>/dev/null; then
+        echo "apt"
+    else
+        echo "unknown"
+    fi
+}
+
+run_update() {
+    local pkg_manager="$1"
+
+    case "$pkg_manager" in
+        xbps)
+            xbps-install -Syu
+            ;;
+        pacman)
+            pacman -Syu --noconfirm
+            ;;
+        apk)
+            apk update && apk upgrade
+            ;;
+        apt)
+            apt update && apt upgrade -y
+            ;;
+        *)
+            echo -e "${RED}Unknown package manager${NC}"
+            return 1
+            ;;
+    esac
+}
+
+PKG_MANAGER=$(detect_pkg_manager)
+
+echo -e "${YELLOW}=== mkOS System Update ===${NC}"
+echo "Package manager: $PKG_MANAGER"
+echo ""
+
+# Check for root
+if [[ $EUID -ne 0 ]]; then
+    echo -e "${RED}Error: Must run as root${NC}"
+    echo "Try: sudo mkos-update"
+    exit 1
+fi
+
+# Pre-update snapshot
+echo -e "${GREEN}[1/2] Creating snapshot...${NC}"
+mkos-snapshot create "$SNAPSHOT"
+echo ""
+
+# Run update
+echo -e "${GREEN}[2/2] Updating system...${NC}"
+echo ""
+if ! run_update "$PKG_MANAGER"; then
+    echo ""
+    echo -e "${RED}Update failed!${NC}"
+    echo ""
+    echo "Rollback with:"
+    echo "  sudo mkos-snapshot rollback $SNAPSHOT"
+    exit 1
+fi
+
+echo ""
+echo -e "${GREEN}=== Update complete ===${NC}"
+echo ""
+echo "Snapshot: $SNAPSHOT"
+echo ""
+echo "If something is broken, rollback with:"
+echo "  sudo mkos-snapshot rollback $SNAPSHOT"

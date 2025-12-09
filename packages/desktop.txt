@@ -1,0 +1,40 @@
+# mkOS desktop packages
+
+# Wayland core
+wayland
+wayland-protocols
+wlroots
+xorg-server-xwayland
+
+# dwl dependencies
+wlroots
+libinput
+pixman
+libdrm
+mesa
+mesa-dri
+vulkan-loader
+
+# Login manager
+greetd
+greetd-tuigreet
+
+# Terminal & launcher
+kitty
+rofi-wayland
+
+# Fonts
+font-hack-ttf
+noto-fonts-ttf
+noto-fonts-emoji
+
+# Audio
+pipewire
+wireplumber
+pavucontrol
+
+# Utilities
+wl-clipboard
+grim
+slurp
+mako

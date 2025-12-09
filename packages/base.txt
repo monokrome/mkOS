@@ -1,0 +1,46 @@
+# mkOS base packages
+
+# Core system
+base-system
+linux
+linux-firmware
+intel-ucode
+amd-ucode
+
+# Init
+s6
+s6-rc
+s6-linux-init
+
+# Boot
+dracut
+efibootmgr
+sbsigntools
+edk2-ovmf
+
+# Encryption
+cryptsetup
+lvm2
+
+# Filesystem
+e2fsprogs
+dosfstools
+
+# Networking
+dhcpcd
+iwd
+openresolv
+
+# Basic tools
+vim
+git
+curl
+wget
+htop
+ripgrep
+bat
+fd
+
+# Shell
+bash
+bash-completion

@@ -1,0 +1,81 @@
+# mkOS System Manifest
+# Declarative system configuration
+
+[system]
+hostname = "workstation"
+timezone = "America/Denver"
+locale = "en_US.UTF-8"
+keymap = "us"
+
+[packages]
+system = [
+    "neovim",
+    "git",
+    "ripgrep",
+    "fd",
+    "bat",
+    "jq",
+    "htop",
+]
+
+development = [
+    "rustup",
+    "nodejs",
+    "npm",
+    "python",
+    "go",
+]
+
+desktop = [
+    "sway",
+    "foot",
+    "wofi",
+    "waybar",
+    "mako",
+]
+
+multimedia = [
+    "pipewire",
+    "wireplumber",
+    "mpv",
+]
+
+networking = [
+    "openssh",
+    "curl",
+    "wget",
+]
+
+[services]
+enabled = [
+    "sshd",
+    "ntpd",
+]
+disabled = [
+    "cups",
+]
+
+[users.polar]
+shell = "/bin/zsh"
+groups = ["wheel", "video", "audio", "input"]
+ssh_keys = [
+    "ssh-ed25519 AAAA... user@host",
+]
+
+[files."/etc/sway/config.d/mkos.conf"]
+content = """
+# mkOS sway config
+set $mod Mod4
+bindsym $mod+Return exec foot
+bindsym $mod+d exec wofi --show drun
+"""
+mode = "0644"
+
+[files."/etc/motd"]
+content = "Welcome to mkOS\n"
+mode = "0644"
+
+[scripts]
+post_install = [
+    "rustup default stable",
+]

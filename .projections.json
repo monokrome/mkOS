@@ -1,0 +1,26 @@
+{
+  "installer/src/*.rs": {
+    "alternate": "installer/tests/{}.rs",
+    "type": "source"
+  },
+  "installer/tests/*.rs": {
+    "alternate": "installer/src/{}.rs",
+    "type": "test"
+  },
+  "installer/src/*/mod.rs": {
+    "alternate": "installer/tests/{}_test.rs",
+    "type": "source"
+  },
+  "packages/*.txt": {
+    "type": "packages"
+  },
+  "overlay/etc/*": {
+    "type": "config"
+  },
+  "templates/*.tmpl": {
+    "type": "template"
+  },
+  "scripts/*.sh": {
+    "type": "script"
+  }
+}

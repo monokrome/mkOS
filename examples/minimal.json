@@ -1,0 +1,19 @@
+{
+  "system": {
+    "hostname": "mkos",
+    "timezone": "UTC",
+    "locale": "en_US.UTF-8"
+  },
+  "disk": {
+    "device": "/dev/vda",
+    "encryption": true,
+    "filesystem": "btrfs"
+  },
+  "packages": {
+    "base": ["s6-base", "linux", "linux-firmware", "cryptsetup", "btrfs-progs"]
+  },
+  "services": {
+    "enable": ["dhcpcd"]
+  },
+  "distro": "artix"
+}

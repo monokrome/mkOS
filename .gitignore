@@ -1,0 +1,31 @@
+# Build outputs
+/out/
+/installer/target/
+
+# Test artifacts
+*.qcow2
+*.fd
+/share/iso/
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (Secure Boot keys)
+/keys/
+*.key
+*.crt
+*.auth
+*.esl
+GUID.txt
+
+# Nested git repos
+/installer/.git/
