@@ -4,6 +4,7 @@ pub mod cmd;
 pub mod crypt;
 pub mod disk;
 pub mod distro;
+pub mod init;
 pub mod install;
 pub mod manifest;
 pub mod mirror;

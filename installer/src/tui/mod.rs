@@ -150,6 +150,7 @@ async fn run_app(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> 
                         distro: DistroKind::Artix,
                         enable_networking: true,
                         extra_packages: Vec::new(),
+                        desktop: Default::default(),
                     };
 
                     // Spawn install thread

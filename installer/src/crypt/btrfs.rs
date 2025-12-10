@@ -77,18 +77,3 @@ pub fn mount_subvolumes(device: &Path, layout: &BtrfsLayout, target: &Path) -> R
 
     Ok(())
 }
-
-pub fn generate_fstab_entries(luks_mapper: &str, layout: &BtrfsLayout) -> String {
-    let mut entries = String::new();
-    let opts_base = format!("compress={},ssd,noatime", layout.compress);
-
-    for subvol in &layout.subvolumes {
-        let opts = format!("{},subvol={}", opts_base, subvol.name);
-        entries.push_str(&format!(
-            "{:<30} {:<15} btrfs   {}  0 0\n",
-            luks_mapper, subvol.mountpoint, opts
-        ));
-    }
-
-    entries
-}

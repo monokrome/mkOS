@@ -241,16 +241,18 @@ fn apply_services(manifest: &Manifest, distro: &dyn mkos::distro::Distro) -> Res
 
     println!("Configuring services...");
 
+    let init = distro.init_system();
+
     for service in &manifest.services.enable {
-        println!("  Enabling: {}", service);
-        distro.enable_service(Path::new("/"), service)?;
+        let mapped = distro.map_service(service);
+        println!("  Enabling: {}", mapped);
+        init.enable_service(Path::new("/"), &mapped)?;
     }
 
     for service in &manifest.services.disable {
-        println!("  Disabling: {}", service);
-        // TODO: Add disable_service to Distro trait
-        // For now, just warn - most users only enable services
-        println!("    Warning: Service disabling not yet implemented");
+        let mapped = distro.map_service(service);
+        println!("  Disabling: {}", mapped);
+        init.disable_service(Path::new("/"), &mapped)?;
     }
 
     Ok(())

@@ -7,7 +7,7 @@ use std::process::Command;
 
 use crate::disk::{self, BlockDevice};
 use crate::distro::DistroKind;
-use crate::install::{InstallConfig, Installer};
+use crate::install::{DesktopConfig, InstallConfig, Installer};
 use crate::manifest::{self, Manifest, ManifestBundle, ManifestSource};
 use crate::mirror;
 
@@ -19,11 +19,17 @@ enum GpuVendor {
 }
 
 fn detect_gpus() -> Vec<GpuVendor> {
-    let output = Command::new("lspci")
-        .output()
-        .ok()
-        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-        .unwrap_or_default();
+    let output = match Command::new("lspci").output() {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
+        Ok(_) => {
+            eprintln!("Warning: lspci returned an error, GPU detection skipped");
+            return Vec::new();
+        }
+        Err(_) => {
+            eprintln!("Warning: lspci not found, GPU detection skipped");
+            return Vec::new();
+        }
+    };
 
     let mut gpus = Vec::new();
 
@@ -33,7 +39,6 @@ fn detect_gpus() -> Vec<GpuVendor> {
             if line_lower.contains("nvidia") {
                 gpus.push(GpuVendor::Nvidia);
             } else if line_lower.contains("amd") || line_lower.contains("ati") {
-                // Check if it's discrete (not just integrated APU graphics)
                 if line_lower.contains("radeon")
                     || line_lower.contains("navi")
                     || line_lower.contains("vega")
@@ -207,6 +212,9 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
         }
     }
 
+    // Desktop environment setup
+    let desktop = prompt_desktop_config()?;
+
     Ok(InstallConfig {
         device,
         passphrase,
@@ -218,7 +226,73 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
         distro,
         enable_networking,
         extra_packages,
+        desktop,
     })
+}
+
+fn prompt_desktop_config() -> Result<DesktopConfig> {
+    println!("\n=== Desktop Environment ===");
+
+    if !prompt_yes_no("Install graphical session support", false)? {
+        return Ok(DesktopConfig::default());
+    }
+
+    println!("  Will install: seatd, polkit, xdg-utils");
+
+    // Ask about display manager
+    let display_manager = prompt_display_manager()?;
+    let greeter = if display_manager.is_some() {
+        prompt_greeter(display_manager.as_deref())?
+    } else {
+        None
+    };
+
+    Ok(DesktopConfig {
+        enabled: true,
+        display_manager,
+        greeter,
+    })
+}
+
+fn prompt_display_manager() -> Result<Option<String>> {
+    println!("\nDisplay manager options:");
+    println!("  [1] greetd - Minimal, flexible login daemon");
+    println!("  [2] ly - TUI display manager");
+    println!("  [3] None - Start session manually or via ~/.profile");
+
+    loop {
+        let input = prompt("Select display manager [1-3]: ")?;
+        match input.as_str() {
+            "1" => return Ok(Some("greetd".into())),
+            "2" => return Ok(Some("ly".into())),
+            "3" | "" => return Ok(None),
+            _ => println!("Invalid selection"),
+        }
+    }
+}
+
+fn prompt_greeter(dm: Option<&str>) -> Result<Option<String>> {
+    match dm {
+        Some("greetd") => {
+            println!("\nGreeter options for greetd:");
+            println!("  [1] regreet - GTK4 graphical greeter (requires cage)");
+            println!("  [2] tuigreet - Terminal-based greeter");
+            println!("  [3] gtkgreet - Simple GTK greeter");
+            println!("  [4] None - Use greetd with agreety (TTY)");
+
+            loop {
+                let input = prompt("Select greeter [1-4]: ")?;
+                match input.as_str() {
+                    "1" => return Ok(Some("regreet".into())),
+                    "2" => return Ok(Some("tuigreet".into())),
+                    "3" => return Ok(Some("gtkgreet".into())),
+                    "4" | "" => return Ok(None),
+                    _ => println!("Invalid selection"),
+                }
+            }
+        }
+        _ => Ok(None),
+    }
 }
 
 fn print_summary(config: &InstallConfig) {
@@ -237,6 +311,20 @@ fn print_summary(config: &InstallConfig) {
             "disabled"
         }
     );
+    if config.desktop.enabled {
+        println!("  Desktop:    enabled (seatd, polkit)");
+        if let Some(dm) = &config.desktop.display_manager {
+            let greeter_str = config
+                .desktop
+                .greeter
+                .as_ref()
+                .map(|g| format!(" + {}", g))
+                .unwrap_or_default();
+            println!("  Display Mgr: {}{}", dm, greeter_str);
+        }
+    } else {
+        println!("  Desktop:    disabled (console only)");
+    }
     if !config.extra_packages.is_empty() {
         println!("  Extra pkgs: {}", config.extra_packages.join(", "));
     }

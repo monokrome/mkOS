@@ -1,4 +1,6 @@
 use super::Distro;
+use crate::cmd;
+use crate::init::{InitSystem, S6};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
@@ -7,6 +9,7 @@ use std::process::Command;
 pub struct Void {
     repo: String,
     package_map: HashMap<String, String>,
+    init_system: S6,
 }
 
 impl Default for Void {
@@ -48,7 +51,17 @@ impl Default for Void {
         Self {
             repo: "https://repo-default.voidlinux.org/current".into(),
             package_map,
+            init_system: S6::void(),
         }
+    }
+}
+
+impl Void {
+    fn xbps_install(&self, root: &Path, packages: &[&str]) -> Result<()> {
+        let root_str = root.to_string_lossy();
+        let mut args = vec!["-Sy", "-R", &self.repo, "-r", &root_str];
+        args.extend(packages);
+        cmd::run("xbps-install", args)
     }
 }
 
@@ -69,34 +82,31 @@ impl Distro for Void {
         self.package_map.get(generic).cloned()
     }
 
+    fn map_service(&self, generic: &str) -> String {
+        // Void uses generic service names (no mapping needed)
+        generic.to_string()
+    }
+
+    fn init_system(&self) -> &dyn InitSystem {
+        &self.init_system
+    }
+
     fn install_packages(&self, root: &Path, packages: &[&str]) -> Result<()> {
         let mapped: Vec<String> = packages
             .iter()
             .filter_map(|p| self.map_package(p))
             .collect();
 
-        // Nothing to install if all packages failed to map or list is empty
         if mapped.is_empty() {
             return Ok(());
         }
 
-        Command::new("xbps-install")
-            .args(["-Sy", "-R", &self.repo, "-r"])
-            .arg(root)
-            .args(&mapped)
-            .status()
-            .context("Failed to install packages")?;
-
-        Ok(())
+        let pkg_refs: Vec<&str> = mapped.iter().map(|s| s.as_str()).collect();
+        self.xbps_install(root, &pkg_refs)
     }
 
     fn update_system(&self) -> Result<()> {
-        Command::new("xbps-install")
-            .args(["-Syu"])
-            .status()
-            .context("Failed to update system")?;
-
-        Ok(())
+        cmd::run("xbps-install", ["-Syu"])
     }
 
     fn bootstrap(&self, root: &Path, enable_networking: bool) -> Result<()> {
@@ -106,55 +116,69 @@ impl Distro for Void {
             packages.push("dhcpcd");
         }
 
-        Command::new("xbps-install")
-            .args(["-Sy", "-R", &self.repo, "-r"])
-            .arg(root)
-            .args(&packages)
-            .status()
-            .context("Failed to bootstrap Void")?;
+        self.xbps_install(root, &packages)?;
 
         if enable_networking {
-            self.enable_service(root, "dhcpcd")?;
+            let service = self.map_service("dhcpcd");
+            self.init_system.enable_service(root, &service)?;
         }
 
         Ok(())
     }
 
-    fn enable_service(&self, root: &Path, service: &str) -> Result<()> {
-        // Void with s6: create symlink in service directory
-        let service_src = root.join("etc/s6/sv").join(service);
-        let service_dst = root.join("etc/s6/rc/default").join(service);
+    fn install_desktop_base(&self, root: &Path) -> Result<()> {
+        let packages = vec!["seatd", "polkit", "xdg-utils"];
+        self.xbps_install(root, &packages)?;
 
-        // Verify the service exists before trying to enable it
-        if !service_src.exists() {
-            anyhow::bail!(
-                "Service '{}' not found at {}. The service package may not be installed.",
-                service,
-                service_src.display()
-            );
-        }
+        let service = self.map_service("seatd");
+        self.init_system.enable_service(root, &service)
+    }
 
-        std::fs::create_dir_all(service_dst.parent().unwrap())?;
+    fn install_display_manager(
+        &self,
+        root: &Path,
+        dm: &str,
+        greeter: Option<&str>,
+    ) -> Result<()> {
+        let dm_packages: Vec<&str> = match dm {
+            "greetd" => {
+                let mut pkgs = vec!["greetd"];
+                if let Some(g) = greeter {
+                    match g {
+                        "tuigreet" => pkgs.push("greetd-tuigreet"),
+                        "gtkgreet" => pkgs.push("greetd-gtkgreet"),
+                        _ => {}
+                    }
+                }
+                pkgs
+            }
+            "ly" => vec!["ly"],
+            _ => return Ok(()),
+        };
 
-        // Create symlink if it doesn't already exist
-        if service_dst.exists() {
-            // Already enabled, skip
+        if dm_packages.is_empty() {
             return Ok(());
         }
 
-        std::os::unix::fs::symlink(&service_src, &service_dst)
-            .context(format!("Failed to enable service '{}'", service))?;
+        self.xbps_install(root, &dm_packages)?;
 
-        Ok(())
+        let service = self.map_service(dm);
+        self.init_system.enable_service(root, &service)
     }
 
     fn generate_fstab(&self, root: &Path) -> Result<String> {
-        // Void uses genfstab from void-install-scripts
         let output = Command::new("genfstab")
             .args(["-U"])
             .arg(root)
             .output()
             .context("Failed to run genfstab")?;
+
+        if !output.status.success() {
+            anyhow::bail!(
+                "genfstab failed with exit code {:?}",
+                output.status.code()
+            );
+        }
 
         String::from_utf8(output.stdout).context("Invalid UTF-8 in fstab output")
     }

@@ -1,5 +1,6 @@
 use super::Distro;
 use crate::cmd;
+use crate::init::{InitSystem, S6};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
@@ -7,6 +8,8 @@ use std::path::Path;
 pub struct Artix {
     repo: String,
     package_map: HashMap<String, String>,
+    service_map: HashMap<String, String>,
+    init_system: S6,
 }
 
 impl Default for Artix {
@@ -54,9 +57,34 @@ impl Default for Artix {
         package_map.insert("font-noto".into(), "noto-fonts".into());
         package_map.insert("font-noto-emoji".into(), "noto-fonts-emoji".into());
 
+        // NVIDIA drivers
+        package_map.insert("nvidia".into(), "nvidia".into());
+        package_map.insert("nvidia-utils".into(), "nvidia-utils".into());
+        package_map.insert("nvidia-prime".into(), "nvidia-prime".into());
+        package_map.insert("lib32-nvidia-utils".into(), "lib32-nvidia-utils".into());
+
+        // AMD drivers
+        package_map.insert("vulkan-radeon".into(), "vulkan-radeon".into());
+        package_map.insert("lib32-mesa".into(), "lib32-mesa".into());
+        package_map.insert("lib32-vulkan-radeon".into(), "lib32-vulkan-radeon".into());
+
+        // System services with s6 counterparts
+        package_map.insert("seatd".into(), "seatd".into());
+        package_map.insert("seatd-s6".into(), "seatd-s6".into());
+        package_map.insert("dbus".into(), "dbus".into());
+        package_map.insert("dbus-s6".into(), "dbus-s6".into());
+        package_map.insert("polkit".into(), "polkit".into());
+
+        // Service name mapping (generic -> Artix-specific)
+        let mut service_map = HashMap::new();
+        service_map.insert("dbus".into(), "dbus-srv".into());
+        service_map.insert("seatd".into(), "seatd-srv".into());
+
         Self {
             repo: "https://mirrors.dotsrc.org/artix-linux/repos".into(),
             package_map,
+            service_map,
+            init_system: S6::artix(),
         }
     }
 }
@@ -78,13 +106,23 @@ impl Distro for Artix {
         self.package_map.get(generic).cloned()
     }
 
+    fn map_service(&self, generic: &str) -> String {
+        self.service_map
+            .get(generic)
+            .cloned()
+            .unwrap_or_else(|| generic.to_string())
+    }
+
+    fn init_system(&self) -> &dyn InitSystem {
+        &self.init_system
+    }
+
     fn install_packages(&self, root: &Path, packages: &[&str]) -> Result<()> {
         let mapped: Vec<String> = packages
             .iter()
             .filter_map(|p| self.map_package(p))
             .collect();
 
-        // Nothing to install if all packages failed to map or list is empty
         if mapped.is_empty() {
             return Ok(());
         }
@@ -102,8 +140,6 @@ impl Distro for Artix {
     }
 
     fn bootstrap(&self, root: &Path, enable_networking: bool) -> Result<()> {
-        // Use basestrap (Artix's pacstrap equivalent)
-        // elogind-s6 required to resolve dependency conflict with dinit
         let mut packages = vec![
             "base",
             "s6-base",
@@ -114,6 +150,8 @@ impl Distro for Artix {
             "btrfs-progs",
             "efibootmgr",
             "dracut",
+            "dbus",
+            "dbus-s6",
         ];
 
         if enable_networking {
@@ -127,39 +165,70 @@ impl Distro for Artix {
 
         cmd::run("basestrap", args)?;
 
+        // Enable essential services
+        let dbus_service = self.map_service("dbus");
+        self.init_system.enable_service(root, &dbus_service)?;
+
         if enable_networking {
-            self.enable_service(root, "dhcpcd")?;
+            let dhcpcd_service = self.map_service("dhcpcd");
+            self.init_system.enable_service(root, &dhcpcd_service)?;
         }
 
         Ok(())
     }
 
-    fn enable_service(&self, root: &Path, service: &str) -> Result<()> {
-        // Artix s6: services are in /etc/s6/sv, enabled by symlinking to /etc/s6/adminsv/default
-        let service_src = root.join("etc/s6/sv").join(service);
-        let service_dst = root.join("etc/s6/adminsv/default").join(service);
+    fn install_desktop_base(&self, root: &Path) -> Result<()> {
+        let packages = vec!["seatd", "seatd-s6", "polkit", "xdg-utils"];
 
-        // Verify the service exists before trying to enable it
-        if !service_src.exists() {
-            anyhow::bail!(
-                "Service '{}' not found at {}. The service package may not be installed.",
-                service,
-                service_src.display()
-            );
-        }
+        let root_str = root.to_string_lossy().to_string();
+        let mut args: Vec<&str> = vec!["-S", "--noconfirm", "-r", &root_str];
+        args.extend(packages);
 
-        std::fs::create_dir_all(service_dst.parent().unwrap())?;
+        cmd::run("pacman", args)?;
 
-        // Create symlink if it doesn't already exist
-        if service_dst.exists() {
-            // Already enabled, skip
+        let seatd_service = self.map_service("seatd");
+        self.init_system.enable_service(root, &seatd_service)
+    }
+
+    fn install_display_manager(
+        &self,
+        root: &Path,
+        dm: &str,
+        greeter: Option<&str>,
+    ) -> Result<()> {
+        let root_str = root.to_string_lossy().to_string();
+
+        let dm_packages: Vec<&str> = match dm {
+            "greetd" => {
+                let mut pkgs = vec!["greetd", "greetd-s6"];
+                if let Some(g) = greeter {
+                    match g {
+                        "regreet" => pkgs.push("greetd-regreet"),
+                        "tuigreet" => pkgs.push("greetd-tuigreet"),
+                        "gtkgreet" => pkgs.push("greetd-gtkgreet"),
+                        _ => {}
+                    }
+                }
+                if greeter == Some("regreet") {
+                    pkgs.push("cage");
+                }
+                pkgs
+            }
+            "ly" => vec!["ly", "ly-s6"],
+            _ => return Ok(()),
+        };
+
+        if dm_packages.is_empty() {
             return Ok(());
         }
 
-        std::os::unix::fs::symlink(&service_src, &service_dst)
-            .context(format!("Failed to enable service '{}'", service))?;
+        let mut args: Vec<&str> = vec!["-S", "--noconfirm", "-r", &root_str];
+        args.extend(dm_packages);
 
-        Ok(())
+        cmd::run("pacman", args)?;
+
+        let service_name = self.map_service(dm);
+        self.init_system.enable_service(root, &service_name)
     }
 
     fn generate_fstab(&self, root: &Path) -> Result<String> {

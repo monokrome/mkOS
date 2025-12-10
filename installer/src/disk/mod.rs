@@ -4,6 +4,7 @@ pub use partition::*;
 
 use crate::cmd;
 use anyhow::Result;
+use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
 use std::process::Command;
 
@@ -70,7 +71,55 @@ pub fn list_block_devices() -> Result<Vec<BlockDevice>> {
     Ok(devices)
 }
 
+/// Validate that a path is a valid block device suitable for installation
+pub fn validate_device(device: &Path) -> Result<()> {
+    // Check device exists
+    if !device.exists() {
+        anyhow::bail!("Device {} does not exist", device.display());
+    }
+
+    // Check it's a block device
+    let metadata = std::fs::metadata(device)?;
+    if !metadata.file_type().is_block_device() {
+        anyhow::bail!(
+            "{} is not a block device (might be a partition or regular file)",
+            device.display()
+        );
+    }
+
+    // Check it's a whole disk, not a partition (path shouldn't end with a number)
+    let path_str = device.to_string_lossy();
+    if path_str
+        .chars()
+        .last()
+        .map(|c| c.is_ascii_digit())
+        .unwrap_or(false)
+    {
+        // Could be a partition like /dev/sda1 or /dev/nvme0n1p1
+        // But /dev/nvme0n1 is valid (ends in digit but is a whole disk)
+        // Check if it looks like a partition suffix
+        if path_str.contains('p') && path_str.rfind('p').map(|i| {
+            path_str[i+1..].chars().all(|c| c.is_ascii_digit())
+        }).unwrap_or(false) {
+            anyhow::bail!(
+                "{} appears to be a partition, not a whole disk",
+                device.display()
+            );
+        }
+        // For traditional devices like /dev/sda1
+        if !path_str.contains("nvme") && !path_str.contains("mmcblk") {
+            anyhow::bail!(
+                "{} appears to be a partition, not a whole disk",
+                device.display()
+            );
+        }
+    }
+
+    Ok(())
+}
+
 pub fn wipe_device(device: &Path) -> Result<()> {
+    validate_device(device)?;
     cmd::run("wipefs", ["--all", "--force", &device.to_string_lossy()])
 }
 

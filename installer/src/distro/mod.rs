@@ -4,6 +4,7 @@ mod void;
 
 pub use packages::*;
 
+use crate::init::InitSystem;
 use anyhow::Result;
 use std::path::Path;
 
@@ -24,8 +25,22 @@ pub trait Distro: Send + Sync {
     /// Bootstrap a minimal system to target root
     fn bootstrap(&self, root: &Path, enable_networking: bool) -> Result<()>;
 
-    /// Enable a service
-    fn enable_service(&self, root: &Path, service: &str) -> Result<()>;
+    /// Install desktop session prerequisites (seatd, polkit, etc.)
+    fn install_desktop_base(&self, root: &Path) -> Result<()>;
+
+    /// Install a display manager with optional greeter
+    fn install_display_manager(
+        &self,
+        root: &Path,
+        dm: &str,
+        greeter: Option<&str>,
+    ) -> Result<()>;
+
+    /// Get the init system for this distro
+    fn init_system(&self) -> &dyn InitSystem;
+
+    /// Map generic service name to distro-specific name
+    fn map_service(&self, generic: &str) -> String;
 
     /// Map generic package name to distro-specific name
     fn map_package(&self, generic: &str) -> Option<String>;

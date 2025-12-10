@@ -7,6 +7,17 @@ use crate::disk::{self, PartitionLayout};
 use crate::distro::DistroKind;
 use crate::uki::{self, BootConfig};
 
+/// Desktop/graphical session configuration
+#[derive(Debug, Clone, Default)]
+pub struct DesktopConfig {
+    /// Whether to install graphical session support (seatd, polkit, etc.)
+    pub enabled: bool,
+    /// Display manager to install (e.g., "greetd", "ly", none)
+    pub display_manager: Option<String>,
+    /// Greeter for the display manager (e.g., "regreet", "tuigreet")
+    pub greeter: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct InstallConfig {
     pub device: PathBuf,
@@ -19,6 +30,7 @@ pub struct InstallConfig {
     pub distro: DistroKind,
     pub enable_networking: bool,
     pub extra_packages: Vec<String>,
+    pub desktop: DesktopConfig,
 }
 
 impl Default for InstallConfig {
@@ -34,6 +46,7 @@ impl Default for InstallConfig {
             distro: DistroKind::Artix,
             enable_networking: true,
             extra_packages: Vec::new(),
+            desktop: DesktopConfig::default(),
         }
     }
 }
@@ -128,6 +141,22 @@ impl Installer {
 
         let distro = self.config.distro.create();
         distro.bootstrap(&self.target, self.config.enable_networking)?;
+
+        // Install desktop base packages if enabled (seatd, polkit, etc.)
+        if self.config.desktop.enabled {
+            println!("Installing desktop session support...");
+            distro.install_desktop_base(&self.target)?;
+
+            // Install display manager if specified
+            if let Some(dm) = &self.config.desktop.display_manager {
+                println!("Installing display manager: {}...", dm);
+                distro.install_display_manager(
+                    &self.target,
+                    dm,
+                    self.config.desktop.greeter.as_deref(),
+                )?;
+            }
+        }
 
         // Install extra packages (e.g., GPU drivers)
         if !self.config.extra_packages.is_empty() {
