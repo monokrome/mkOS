@@ -12,10 +12,39 @@ use crate::uki::{self, BootConfig};
 pub struct DesktopConfig {
     /// Whether to install graphical session support (seatd, polkit, etc.)
     pub enabled: bool,
+    /// Seat manager to use ("seatd" or "elogind", defaults to "seatd")
+    pub seat_manager: Option<String>,
     /// Display manager to install (e.g., "greetd", "ly", none)
     pub display_manager: Option<String>,
     /// Greeter for the display manager (e.g., "regreet", "tuigreet")
     pub greeter: Option<String>,
+}
+
+/// Swap configuration
+#[derive(Debug, Clone)]
+pub struct SwapConfig {
+    /// Enable zram (compressed RAM swap)
+    pub zram_enabled: bool,
+    /// zram size in GB (None = auto: half of RAM, max 16GB)
+    pub zram_size_gb: Option<u32>,
+    /// Enable swapfile (disk-based swap)
+    pub swapfile_enabled: bool,
+    /// Swapfile size in GB (None = auto: equal to RAM)
+    pub swapfile_size_gb: Option<u32>,
+    /// Swappiness value (0-100, default 20)
+    pub swappiness: u8,
+}
+
+impl Default for SwapConfig {
+    fn default() -> Self {
+        Self {
+            zram_enabled: false,
+            zram_size_gb: None,
+            swapfile_enabled: false,
+            swapfile_size_gb: None,
+            swappiness: 20,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -31,6 +60,8 @@ pub struct InstallConfig {
     pub enable_networking: bool,
     pub extra_packages: Vec<String>,
     pub desktop: DesktopConfig,
+    pub swap: SwapConfig,
+    pub audio_enabled: bool,
 }
 
 impl Default for InstallConfig {
@@ -47,6 +78,8 @@ impl Default for InstallConfig {
             enable_networking: true,
             extra_packages: Vec::new(),
             desktop: DesktopConfig::default(),
+            swap: SwapConfig::default(),
+            audio_enabled: false,
         }
     }
 }
@@ -73,13 +106,14 @@ impl Installer {
         self.mount()?;
         self.bootstrap()?;
         self.configure()?;
+        self.setup_swap()?;
         self.setup_boot()?;
         self.create_snapshot()?;
         Ok(())
     }
 
     fn partition(&self) -> Result<()> {
-        println!("\n[1/8] Partitioning disk...");
+        println!("\n[1/9] Partitioning disk...");
 
         disk::wipe_device(&self.config.device)?;
 
@@ -93,7 +127,7 @@ impl Installer {
     }
 
     fn encrypt(&self) -> Result<()> {
-        println!("\n[2/8] Setting up encryption...");
+        println!("\n[2/9] Setting up encryption...");
 
         let parts = disk::detect_partitions(&self.config.device)?;
         let luks_config = LuksConfig::default();
@@ -105,7 +139,7 @@ impl Installer {
     }
 
     fn create_filesystems(&self) -> Result<()> {
-        println!("\n[3/8] Creating filesystems...");
+        println!("\n[3/9] Creating filesystems...");
 
         let mapper_device = PathBuf::from(format!("/dev/mapper/{}", self.luks_name));
         let layout = BtrfsLayout::default();
@@ -117,7 +151,7 @@ impl Installer {
     }
 
     fn mount(&self) -> Result<()> {
-        println!("\n[4/8] Mounting filesystems...");
+        println!("\n[4/9] Mounting filesystems...");
 
         let mapper_device = PathBuf::from(format!("/dev/mapper/{}", self.luks_name));
         let layout = BtrfsLayout::default();
@@ -137,25 +171,34 @@ impl Installer {
     }
 
     fn bootstrap(&self) -> Result<()> {
-        println!("\n[5/8] Installing base system...");
+        println!("\n[5/9] Installing base system...");
 
         let distro = self.config.distro.create();
         distro.bootstrap(&self.target, self.config.enable_networking)?;
 
-        // Install desktop base packages if enabled (seatd, polkit, etc.)
+        // Install desktop base packages if enabled (seat manager, polkit, etc.)
         if self.config.desktop.enabled {
-            println!("Installing desktop session support...");
-            distro.install_desktop_base(&self.target)?;
+            let seat_manager = self.config.desktop.seat_manager.as_deref().unwrap_or("seatd");
+            println!("Installing desktop session support ({})...", seat_manager);
+            distro.install_desktop_base(&self.target, seat_manager)?;
 
             // Install display manager if specified
             if let Some(dm) = &self.config.desktop.display_manager {
                 println!("Installing display manager: {}...", dm);
+                let needs_pam_rundir = seat_manager != "elogind";
                 distro.install_display_manager(
                     &self.target,
                     dm,
                     self.config.desktop.greeter.as_deref(),
+                    needs_pam_rundir,
                 )?;
             }
+        }
+
+        // Install audio (PipeWire) if enabled
+        if self.config.audio_enabled {
+            println!("Installing audio support (pipewire)...");
+            crate::audio::setup_audio(&self.target, distro.as_ref())?;
         }
 
         // Install extra packages (e.g., GPU drivers)
@@ -186,7 +229,7 @@ impl Installer {
     }
 
     fn configure(&self) -> Result<()> {
-        println!("\n[6/8] Configuring system...");
+        println!("\n[6/9] Configuring system...");
 
         let sys_config = SystemConfig {
             hostname: self.config.hostname.clone(),
@@ -201,8 +244,17 @@ impl Installer {
         Ok(())
     }
 
+    fn setup_swap(&self) -> Result<()> {
+        if !self.config.swap.zram_enabled && !self.config.swap.swapfile_enabled {
+            return Ok(());
+        }
+
+        println!("\n[7/9] Setting up swap...");
+        crate::swap::setup_swap(&self.target, &self.config.swap)
+    }
+
     fn setup_boot(&self) -> Result<()> {
-        println!("\n[7/8] Setting up boot...");
+        println!("\n[8/9] Setting up boot...");
 
         let parts = disk::detect_partitions(&self.config.device)?;
         let luks_uuid = luks::get_uuid(&parts.luks)?;
@@ -226,7 +278,7 @@ impl Installer {
     }
 
     fn create_snapshot(&self) -> Result<()> {
-        println!("\n[8/8] Creating initial snapshot...");
+        println!("\n[9/9] Creating initial snapshot...");
 
         use crate::crypt::snapshot;
         snapshot::create_install_snapshot(&self.target)?;

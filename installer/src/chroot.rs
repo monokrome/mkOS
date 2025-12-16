@@ -150,3 +150,59 @@ pub fn generate_crypttab(target: &Path, luks_uuid: &str) -> Result<()> {
 
     Ok(())
 }
+
+/// Create a user account with the specified groups
+pub fn create_user(target: &Path, username: &str, password: &str, groups: &[&str]) -> Result<()> {
+    let target_str = target.to_string_lossy().to_string();
+
+    // Create user with home directory
+    cmd::run(
+        "chroot",
+        [&target_str, "useradd", "-m", "-s", "/bin/bash", username],
+    )
+    .context(format!("Failed to create user '{}'", username))?;
+
+    // Set password
+    cmd::run_with_stdin(
+        "chroot",
+        [&target_str, "chpasswd"],
+        format!("{}:{}\n", username, password).as_bytes(),
+    )
+    .context(format!("Failed to set password for '{}'", username))?;
+
+    // Add to groups if any
+    if !groups.is_empty() {
+        let groups_str = groups.join(",");
+        cmd::run(
+            "chroot",
+            [&target_str, "usermod", "-aG", &groups_str, username],
+        )
+        .context(format!("Failed to add '{}' to groups", username))?;
+    }
+
+    Ok(())
+}
+
+/// Determine user groups based on enabled features
+pub fn determine_user_groups(
+    desktop_enabled: bool,
+    seat_manager: Option<&str>,
+    audio_enabled: bool,
+) -> Vec<&'static str> {
+    let mut groups = vec!["wheel"]; // Always admin
+
+    if desktop_enabled {
+        groups.extend(["video", "render"]);
+
+        let seat_mgr = seat_manager.unwrap_or("seatd");
+        if seat_mgr == "seatd" {
+            groups.push("seat");
+        }
+    }
+
+    if audio_enabled {
+        groups.push("audio");
+    }
+
+    groups
+}

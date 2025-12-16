@@ -63,6 +63,27 @@ impl Void {
         args.extend(packages);
         cmd::run("xbps-install", args)
     }
+
+    /// Configure pam_rundir in the display manager's PAM file
+    fn configure_pam_rundir(&self, root: &Path, dm: &str) -> Result<()> {
+        let pam_path = root.join("etc/pam.d").join(dm);
+
+        if !pam_path.exists() {
+            return Ok(());
+        }
+
+        let content = std::fs::read_to_string(&pam_path)?;
+
+        if !content.contains("pam_rundir.so") {
+            let new_content = format!(
+                "{}\nsession    optional   pam_rundir.so\n",
+                content.trim_end()
+            );
+            std::fs::write(&pam_path, new_content)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Distro for Void {
@@ -126,11 +147,17 @@ impl Distro for Void {
         Ok(())
     }
 
-    fn install_desktop_base(&self, root: &Path) -> Result<()> {
-        let packages = vec!["seatd", "polkit", "xdg-utils"];
+    fn install_desktop_base(&self, root: &Path, seat_manager: &str) -> Result<()> {
+        let (seat_packages, service_name): (Vec<&str>, &str) = match seat_manager {
+            "elogind" => (vec!["elogind"], "elogind"),
+            _ => (vec!["seatd", "pam_rundir"], "seatd"),
+        };
+
+        let mut packages = seat_packages;
+        packages.extend(["polkit", "xdg-utils"]);
         self.xbps_install(root, &packages)?;
 
-        let service = self.map_service("seatd");
+        let service = self.map_service(service_name);
         self.init_system.enable_service(root, &service)
     }
 
@@ -139,6 +166,7 @@ impl Distro for Void {
         root: &Path,
         dm: &str,
         greeter: Option<&str>,
+        configure_pam_rundir: bool,
     ) -> Result<()> {
         let dm_packages: Vec<&str> = match dm {
             "greetd" => {
@@ -161,6 +189,11 @@ impl Distro for Void {
         }
 
         self.xbps_install(root, &dm_packages)?;
+
+        // Configure pam_rundir for XDG_RUNTIME_DIR if using seatd
+        if configure_pam_rundir {
+            self.configure_pam_rundir(root, dm)?;
+        }
 
         let service = self.map_service(dm);
         self.init_system.enable_service(root, &service)

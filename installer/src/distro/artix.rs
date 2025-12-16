@@ -79,6 +79,7 @@ impl Default for Artix {
         let mut service_map = HashMap::new();
         service_map.insert("dbus".into(), "dbus-srv".into());
         service_map.insert("seatd".into(), "seatd-srv".into());
+        service_map.insert("elogind".into(), "elogind-srv".into());
 
         Self {
             repo: "https://mirrors.dotsrc.org/artix-linux/repos".into(),
@@ -86,6 +87,31 @@ impl Default for Artix {
             service_map,
             init_system: S6::artix(),
         }
+    }
+}
+
+impl Artix {
+    /// Configure pam_rundir in the display manager's PAM file
+    fn configure_pam_rundir(&self, root: &Path, dm: &str) -> Result<()> {
+        let pam_path = root.join("etc/pam.d").join(dm);
+
+        if !pam_path.exists() {
+            // PAM file doesn't exist yet, skip configuration
+            return Ok(());
+        }
+
+        let content = std::fs::read_to_string(&pam_path)?;
+
+        // Only add if not already present
+        if !content.contains("pam_rundir.so") {
+            let new_content = format!(
+                "{}\nsession    optional   pam_rundir.so\n",
+                content.trim_end()
+            );
+            std::fs::write(&pam_path, new_content)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -177,8 +203,14 @@ impl Distro for Artix {
         Ok(())
     }
 
-    fn install_desktop_base(&self, root: &Path) -> Result<()> {
-        let packages = vec!["seatd", "seatd-s6", "polkit", "xdg-utils"];
+    fn install_desktop_base(&self, root: &Path, seat_manager: &str) -> Result<()> {
+        let (seat_packages, service_name): (Vec<&str>, &str) = match seat_manager {
+            "elogind" => (vec!["elogind", "elogind-s6"], "elogind"),
+            _ => (vec!["seatd", "seatd-s6", "pam_rundir"], "seatd"),
+        };
+
+        let mut packages = seat_packages;
+        packages.extend(["polkit", "xdg-utils"]);
 
         let root_str = root.to_string_lossy().to_string();
         let mut args: Vec<&str> = vec!["-S", "--noconfirm", "-r", &root_str];
@@ -186,8 +218,8 @@ impl Distro for Artix {
 
         cmd::run("pacman", args)?;
 
-        let seatd_service = self.map_service("seatd");
-        self.init_system.enable_service(root, &seatd_service)
+        let service = self.map_service(service_name);
+        self.init_system.enable_service(root, &service)
     }
 
     fn install_display_manager(
@@ -195,6 +227,7 @@ impl Distro for Artix {
         root: &Path,
         dm: &str,
         greeter: Option<&str>,
+        configure_pam_rundir: bool,
     ) -> Result<()> {
         let root_str = root.to_string_lossy().to_string();
 
@@ -226,6 +259,11 @@ impl Distro for Artix {
         args.extend(dm_packages);
 
         cmd::run("pacman", args)?;
+
+        // Configure pam_rundir for XDG_RUNTIME_DIR if using seatd
+        if configure_pam_rundir {
+            self.configure_pam_rundir(root, dm)?;
+        }
 
         let service_name = self.map_service(dm);
         self.init_system.enable_service(root, &service_name)

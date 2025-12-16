@@ -7,7 +7,7 @@ use std::process::Command;
 
 use crate::disk::{self, BlockDevice};
 use crate::distro::DistroKind;
-use crate::install::{DesktopConfig, InstallConfig, Installer};
+use crate::install::{DesktopConfig, InstallConfig, Installer, SwapConfig};
 use crate::manifest::{self, Manifest, ManifestBundle, ManifestSource};
 use crate::mirror;
 
@@ -215,6 +215,17 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
     // Desktop environment setup
     let desktop = prompt_desktop_config()?;
 
+    // Swap configuration
+    let swap = prompt_swap_config()?;
+
+    // Audio configuration (automatic with desktop, otherwise prompt)
+    let audio_enabled = if desktop.enabled {
+        println!("\n  Audio: pipewire (automatic with desktop)");
+        true
+    } else {
+        prompt_yes_no("\nEnable audio support (pipewire)", false)?
+    };
+
     Ok(InstallConfig {
         device,
         passphrase,
@@ -227,6 +238,8 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
         enable_networking,
         extra_packages,
         desktop,
+        swap,
+        audio_enabled,
     })
 }
 
@@ -237,7 +250,13 @@ fn prompt_desktop_config() -> Result<DesktopConfig> {
         return Ok(DesktopConfig::default());
     }
 
-    println!("  Will install: seatd, polkit, xdg-utils");
+    // Ask about seat manager
+    let seat_manager = prompt_seat_manager()?;
+
+    println!(
+        "  Will install: {}, polkit, xdg-utils",
+        seat_manager.as_deref().unwrap_or("seatd")
+    );
 
     // Ask about display manager
     let display_manager = prompt_display_manager()?;
@@ -249,9 +268,87 @@ fn prompt_desktop_config() -> Result<DesktopConfig> {
 
     Ok(DesktopConfig {
         enabled: true,
+        seat_manager,
         display_manager,
         greeter,
     })
+}
+
+fn prompt_swap_config() -> Result<SwapConfig> {
+    println!("\n=== Swap Configuration ===");
+
+    // Get system RAM for defaults
+    let ram_gb = get_system_ram_gb();
+    let default_zram_gb = std::cmp::min(ram_gb / 2, 16).max(1);
+    let default_swapfile_gb = ram_gb.max(1);
+
+    // zram
+    let zram_enabled = prompt_yes_no("Enable zram (compressed RAM swap)", true)?;
+    let zram_size_gb = if zram_enabled {
+        let size_str = prompt_default("  zram size (GB)", &format!("{}", default_zram_gb))?;
+        Some(size_str.parse::<u32>().unwrap_or(default_zram_gb))
+    } else {
+        None
+    };
+
+    // swapfile
+    let swapfile_enabled = prompt_yes_no("Enable swapfile (disk swap)", false)?;
+    let swapfile_size_gb = if swapfile_enabled {
+        let size_str = prompt_default("  Swapfile size (GB)", &format!("{}", default_swapfile_gb))?;
+        Some(size_str.parse::<u32>().unwrap_or(default_swapfile_gb))
+    } else {
+        None
+    };
+
+    // swappiness (only ask if any swap is enabled)
+    let swappiness = if zram_enabled || swapfile_enabled {
+        let swap_str = prompt_default("  Swappiness (0-100, lower = prefer RAM)", "20")?;
+        swap_str.parse::<u8>().unwrap_or(20).min(100)
+    } else {
+        20
+    };
+
+    Ok(SwapConfig {
+        zram_enabled,
+        zram_size_gb,
+        swapfile_enabled,
+        swapfile_size_gb,
+        swappiness,
+    })
+}
+
+fn get_system_ram_gb() -> u32 {
+    // Read /proc/meminfo to get total RAM
+    if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
+        for line in content.lines() {
+            if line.starts_with("MemTotal:") {
+                // Format: "MemTotal:       16384000 kB"
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    if let Ok(kb) = parts[1].parse::<u64>() {
+                        return (kb / 1_048_576) as u32; // KB to GB
+                    }
+                }
+            }
+        }
+    }
+    // Default to 8GB if we can't detect
+    8
+}
+
+fn prompt_seat_manager() -> Result<Option<String>> {
+    println!("\nSeat manager options:");
+    println!("  [1] seatd - Minimal seat management (recommended)");
+    println!("  [2] elogind - Full session management (seat, login, power)");
+
+    loop {
+        let input = prompt("Select seat manager [1-2]: ")?;
+        match input.as_str() {
+            "1" | "" => return Ok(None), // None = default to seatd
+            "2" => return Ok(Some("elogind".into())),
+            _ => println!("Invalid selection"),
+        }
+    }
 }
 
 fn prompt_display_manager() -> Result<Option<String>> {
@@ -312,7 +409,8 @@ fn print_summary(config: &InstallConfig) {
         }
     );
     if config.desktop.enabled {
-        println!("  Desktop:    enabled (seatd, polkit)");
+        let seat_mgr = config.desktop.seat_manager.as_deref().unwrap_or("seatd");
+        println!("  Desktop:    enabled ({}, polkit)", seat_mgr);
         if let Some(dm) = &config.desktop.display_manager {
             let greeter_str = config
                 .desktop
@@ -325,6 +423,42 @@ fn print_summary(config: &InstallConfig) {
     } else {
         println!("  Desktop:    disabled (console only)");
     }
+    // Swap
+    let swap_parts: Vec<String> = [
+        config.swap.zram_enabled.then(|| {
+            format!(
+                "zram {}GB",
+                config.swap.zram_size_gb.unwrap_or(8)
+            )
+        }),
+        config.swap.swapfile_enabled.then(|| {
+            format!(
+                "swapfile {}GB",
+                config.swap.swapfile_size_gb.unwrap_or(8)
+            )
+        }),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    if !swap_parts.is_empty() {
+        println!(
+            "  Swap:       {} (swappiness={})",
+            swap_parts.join(" + "),
+            config.swap.swappiness
+        );
+    } else {
+        println!("  Swap:       disabled");
+    }
+    // Audio
+    println!(
+        "  Audio:      {}",
+        if config.audio_enabled {
+            "pipewire"
+        } else {
+            "disabled"
+        }
+    );
     if !config.extra_packages.is_empty() {
         println!("  Extra pkgs: {}", config.extra_packages.join(", "));
     }

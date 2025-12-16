@@ -151,6 +151,8 @@ async fn run_app(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> 
                         enable_networking: true,
                         extra_packages: Vec::new(),
                         desktop: Default::default(),
+                        swap: Default::default(),
+                        audio_enabled: false,
                     };
 
                     // Spawn install thread

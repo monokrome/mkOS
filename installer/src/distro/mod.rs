@@ -25,8 +25,8 @@ pub trait Distro: Send + Sync {
     /// Bootstrap a minimal system to target root
     fn bootstrap(&self, root: &Path, enable_networking: bool) -> Result<()>;
 
-    /// Install desktop session prerequisites (seatd, polkit, etc.)
-    fn install_desktop_base(&self, root: &Path) -> Result<()>;
+    /// Install desktop session prerequisites (seat manager, polkit, etc.)
+    fn install_desktop_base(&self, root: &Path, seat_manager: &str) -> Result<()>;
 
     /// Install a display manager with optional greeter
     fn install_display_manager(
@@ -34,6 +34,7 @@ pub trait Distro: Send + Sync {
         root: &Path,
         dm: &str,
         greeter: Option<&str>,
+        configure_pam_rundir: bool,
     ) -> Result<()>;
 
     /// Get the init system for this distro

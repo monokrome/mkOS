@@ -1,3 +1,4 @@
+pub mod audio;
 pub mod chroot;
 pub mod cli;
 pub mod cmd;
@@ -8,5 +9,6 @@ pub mod init;
 pub mod install;
 pub mod manifest;
 pub mod mirror;
+pub mod swap;
 pub mod tui;
 pub mod uki;
