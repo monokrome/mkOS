@@ -18,6 +18,8 @@ pub struct DesktopConfig {
     pub display_manager: Option<String>,
     /// Greeter for the display manager (e.g., "regreet", "tuigreet")
     pub greeter: Option<String>,
+    /// Enable user-level init system for user services (pipewire, etc.)
+    pub user_services: bool,
 }
 
 /// Swap configuration
@@ -193,6 +195,12 @@ impl Installer {
                     needs_pam_rundir,
                 )?;
             }
+        }
+
+        // Set up user-level services if enabled
+        if self.config.desktop.user_services {
+            println!("Setting up user-level s6 services...");
+            crate::user_services::setup_user_s6(&self.target)?;
         }
 
         // Install audio (PipeWire) if enabled

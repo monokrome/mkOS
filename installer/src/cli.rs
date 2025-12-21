@@ -266,11 +266,19 @@ fn prompt_desktop_config() -> Result<DesktopConfig> {
         None
     };
 
+    // Ask about user-level services if display manager is set
+    let user_services = if display_manager.is_some() {
+        prompt_yes_no("Enable user services (pipewire, etc. via user s6)", true)?
+    } else {
+        false
+    };
+
     Ok(DesktopConfig {
         enabled: true,
         seat_manager,
         display_manager,
         greeter,
+        user_services,
     })
 }
 
@@ -419,6 +427,9 @@ fn print_summary(config: &InstallConfig) {
                 .map(|g| format!(" + {}", g))
                 .unwrap_or_default();
             println!("  Display Mgr: {}{}", dm, greeter_str);
+        }
+        if config.desktop.user_services {
+            println!("  User Svcs:  enabled (s6 user supervisor)");
         }
     } else {
         println!("  Desktop:    disabled (console only)");
