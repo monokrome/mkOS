@@ -10,6 +10,15 @@ pub struct Manifest {
     pub disk: DiskConfig,
 
     #[serde(default)]
+    pub desktop: DesktopManifest,
+
+    #[serde(default)]
+    pub swap: SwapManifest,
+
+    #[serde(default)]
+    pub audio: bool,
+
+    #[serde(default)]
     pub packages: HashMap<String, Vec<String>>,
 
     #[serde(default)]
@@ -37,6 +46,9 @@ impl Default for Manifest {
         Self {
             system: SystemConfig::default(),
             disk: DiskConfig::default(),
+            desktop: DesktopManifest::default(),
+            swap: SwapManifest::default(),
+            audio: false,
             packages: HashMap::new(),
             services: ServiceConfig::default(),
             users: HashMap::new(),
@@ -45,6 +57,56 @@ impl Default for Manifest {
             distro: default_distro(),
         }
     }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DesktopManifest {
+    /// Enable graphical session support
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Seat manager: "seatd" or "elogind"
+    #[serde(default)]
+    pub seat_manager: Option<String>,
+
+    /// Display manager: "greetd", "ly", etc.
+    #[serde(default)]
+    pub display_manager: Option<String>,
+
+    /// Greeter for display manager: "tuigreet", "regreet", etc.
+    #[serde(default)]
+    pub greeter: Option<String>,
+
+    /// Enable user-level s6 services
+    #[serde(default)]
+    pub user_services: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SwapManifest {
+    /// Enable zram (compressed RAM swap)
+    #[serde(default)]
+    pub zram: bool,
+
+    /// zram size in GB
+    #[serde(default)]
+    pub zram_size: Option<u32>,
+
+    /// Enable swapfile
+    #[serde(default)]
+    pub swapfile: bool,
+
+    /// Swapfile size in GB
+    #[serde(default)]
+    pub swapfile_size: Option<u32>,
+
+    /// Swappiness (0-100)
+    #[serde(default = "default_swappiness")]
+    pub swappiness: u8,
+}
+
+fn default_swappiness() -> u8 {
+    20
 }
 
 impl Manifest {

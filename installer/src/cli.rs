@@ -212,14 +212,39 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
         }
     }
 
-    // Desktop environment setup
-    let desktop = prompt_desktop_config()?;
+    // Desktop environment setup - from manifest or prompt
+    let desktop = if manifest.desktop.enabled {
+        println!("Using desktop config from manifest");
+        DesktopConfig {
+            enabled: true,
+            seat_manager: manifest.desktop.seat_manager.clone(),
+            display_manager: manifest.desktop.display_manager.clone(),
+            greeter: manifest.desktop.greeter.clone(),
+            user_services: manifest.desktop.user_services,
+        }
+    } else {
+        prompt_desktop_config()?
+    };
 
-    // Swap configuration
-    let swap = prompt_swap_config()?;
+    // Swap configuration - from manifest or prompt
+    let swap = if manifest.swap.zram || manifest.swap.swapfile {
+        println!("Using swap config from manifest");
+        SwapConfig {
+            zram_enabled: manifest.swap.zram,
+            zram_size_gb: manifest.swap.zram_size,
+            swapfile_enabled: manifest.swap.swapfile,
+            swapfile_size_gb: manifest.swap.swapfile_size,
+            swappiness: manifest.swap.swappiness,
+        }
+    } else {
+        prompt_swap_config()?
+    };
 
-    // Audio configuration (automatic with desktop, otherwise prompt)
-    let audio_enabled = if desktop.enabled {
+    // Audio configuration - from manifest or prompt
+    let audio_enabled = if manifest.audio {
+        println!("Audio enabled from manifest");
+        true
+    } else if desktop.enabled {
         println!("\n  Audio: pipewire (automatic with desktop)");
         true
     } else {

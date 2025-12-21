@@ -32,6 +32,27 @@
         }
       }
     },
+    "desktop": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "seat_manager": { "type": "string", "enum": ["seatd", "elogind"] },
+        "display_manager": { "type": "string", "enum": ["greetd", "ly"] },
+        "greeter": { "type": "string", "enum": ["tuigreet", "regreet", "gtkgreet"] },
+        "user_services": { "type": "boolean", "default": false }
+      }
+    },
+    "swap": {
+      "type": "object",
+      "properties": {
+        "zram": { "type": "boolean", "default": false },
+        "zram_size": { "type": "integer", "minimum": 1 },
+        "swapfile": { "type": "boolean", "default": false },
+        "swapfile_size": { "type": "integer", "minimum": 1 },
+        "swappiness": { "type": "integer", "minimum": 0, "maximum": 100, "default": 20 }
+      }
+    },
+    "audio": { "type": "boolean", "default": false },
     "packages": {
       "type": "object",
       "additionalProperties": {
