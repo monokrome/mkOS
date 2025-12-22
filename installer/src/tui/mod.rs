@@ -152,7 +152,9 @@ async fn run_app(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> 
                         extra_packages: Vec::new(),
                         desktop: Default::default(),
                         swap: Default::default(),
-                        audio_enabled: false,
+                        audio: Default::default(),
+                        network: Default::default(),
+                        firewall: Default::default(),
                     };
 
                     // Spawn install thread

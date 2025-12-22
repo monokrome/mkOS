@@ -51,6 +51,15 @@ impl Default for Artix {
         package_map.insert("rofi-wayland".into(), "rofi-wayland".into());
         package_map.insert("pipewire".into(), "pipewire".into());
         package_map.insert("wireplumber".into(), "wireplumber".into());
+        package_map.insert("pipewire-pulse".into(), "pipewire-pulse".into());
+        package_map.insert("pipewire-alsa".into(), "pipewire-alsa".into());
+        package_map.insert("pipewire-jack".into(), "pipewire-jack".into());
+
+        // XDG Desktop Portals
+        package_map.insert("xdg-desktop-portal".into(), "xdg-desktop-portal".into());
+        package_map.insert("xdg-desktop-portal-wlr".into(), "xdg-desktop-portal-wlr".into());
+        package_map.insert("xdg-desktop-portal-gtk".into(), "xdg-desktop-portal-gtk".into());
+        package_map.insert("xdg-desktop-portal-kde".into(), "xdg-desktop-portal-kde".into());
 
         // Fonts
         package_map.insert("font-hack".into(), "ttf-hack".into());
@@ -68,6 +77,14 @@ impl Default for Artix {
         package_map.insert("lib32-mesa".into(), "lib32-mesa".into());
         package_map.insert("lib32-vulkan-radeon".into(), "lib32-vulkan-radeon".into());
 
+        // Network services
+        package_map.insert("avahi".into(), "avahi".into());
+        package_map.insert("nss-mdns".into(), "nss-mdns".into());
+        package_map.insert("openssh".into(), "openssh".into());
+        package_map.insert("openssh-s6".into(), "openssh-s6".into());
+        package_map.insert("eternalterminal".into(), "eternalterminal".into());
+        package_map.insert("nftables".into(), "nftables".into());
+
         // System services with s6 counterparts
         package_map.insert("seatd".into(), "seatd".into());
         package_map.insert("seatd-s6".into(), "seatd-s6".into());
@@ -80,6 +97,10 @@ impl Default for Artix {
         service_map.insert("dbus".into(), "dbus-srv".into());
         service_map.insert("seatd".into(), "seatd-srv".into());
         service_map.insert("elogind".into(), "elogind-srv".into());
+        service_map.insert("avahi".into(), "avahi".into());
+        service_map.insert("sshd".into(), "sshd".into());
+        service_map.insert("etserver".into(), "etserver".into());
+        service_map.insert("nftables".into(), "nftables".into());
 
         Self {
             repo: "https://mirrors.dotsrc.org/artix-linux/repos".into(),
@@ -267,6 +288,27 @@ impl Distro for Artix {
 
         let service_name = self.map_service(dm);
         self.init_system.enable_service(root, &service_name)
+    }
+
+    fn install_portals(&self, root: &Path, backends: &[&str]) -> Result<()> {
+        // Core portal package (always installed)
+        let mut packages = vec!["xdg-desktop-portal"];
+
+        // Add backend-specific packages
+        for backend in backends {
+            match *backend {
+                "wlr" => packages.push("xdg-desktop-portal-wlr"),
+                "gtk" => packages.push("xdg-desktop-portal-gtk"),
+                "kde" => packages.push("xdg-desktop-portal-kde"),
+                _ => {}
+            }
+        }
+
+        let root_str = root.to_string_lossy().to_string();
+        let mut args: Vec<&str> = vec!["-S", "--noconfirm", "-r", &root_str];
+        args.extend(packages);
+
+        cmd::run("pacman", args)
     }
 
     fn generate_fstab(&self, root: &Path) -> Result<String> {

@@ -37,6 +37,9 @@ pub trait Distro: Send + Sync {
         configure_pam_rundir: bool,
     ) -> Result<()>;
 
+    /// Install XDG desktop portals with specified backends
+    fn install_portals(&self, root: &Path, backends: &[&str]) -> Result<()>;
+
     /// Get the init system for this distro
     fn init_system(&self) -> &dyn InitSystem;
 

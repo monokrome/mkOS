@@ -199,6 +199,23 @@ impl Distro for Void {
         self.init_system.enable_service(root, &service)
     }
 
+    fn install_portals(&self, root: &Path, backends: &[&str]) -> Result<()> {
+        // Core portal package (always installed)
+        let mut packages = vec!["xdg-desktop-portal"];
+
+        // Add backend-specific packages
+        for backend in backends {
+            match *backend {
+                "wlr" => packages.push("xdg-desktop-portal-wlr"),
+                "gtk" => packages.push("xdg-desktop-portal-gtk"),
+                "kde" => packages.push("xdg-desktop-portal-kde"),
+                _ => {}
+            }
+        }
+
+        self.xbps_install(root, &packages)
+    }
+
     fn generate_fstab(&self, root: &Path) -> Result<String> {
         let output = Command::new("genfstab")
             .args(["-U"])

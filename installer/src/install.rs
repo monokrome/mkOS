@@ -2,9 +2,13 @@ use anyhow::Result;
 use std::path::PathBuf;
 
 use crate::chroot::{self, SystemConfig};
-use crate::crypt::{btrfs, luks, BtrfsLayout, LuksConfig};
+use crate::crypt::{
+    create_subvolumes, format_btrfs, format_luks, get_uuid, mount_subvolumes, open_luks,
+    BtrfsLayout, LuksConfig,
+};
 use crate::disk::{self, PartitionLayout};
 use crate::distro::DistroKind;
+use crate::manifest::{AudioConfig, FirewallConfig, GreetdConfig, NetworkConfig};
 use crate::uki::{self, BootConfig};
 
 /// Desktop/graphical session configuration
@@ -20,6 +24,12 @@ pub struct DesktopConfig {
     pub greeter: Option<String>,
     /// Enable user-level init system for user services (pipewire, etc.)
     pub user_services: bool,
+    /// Enable XDG desktop portals (for Wayland screen sharing, file dialogs, etc.)
+    pub portals: bool,
+    /// Portal backend implementations to install (e.g., "wlr", "gtk", "kde")
+    pub portal_backends: Vec<String>,
+    /// greetd-specific configuration
+    pub greetd_config: Option<GreetdConfig>,
 }
 
 /// Swap configuration
@@ -63,7 +73,9 @@ pub struct InstallConfig {
     pub extra_packages: Vec<String>,
     pub desktop: DesktopConfig,
     pub swap: SwapConfig,
-    pub audio_enabled: bool,
+    pub audio: AudioConfig,
+    pub network: NetworkConfig,
+    pub firewall: FirewallConfig,
 }
 
 impl Default for InstallConfig {
@@ -81,7 +93,9 @@ impl Default for InstallConfig {
             extra_packages: Vec::new(),
             desktop: DesktopConfig::default(),
             swap: SwapConfig::default(),
-            audio_enabled: false,
+            audio: AudioConfig::default(),
+            network: NetworkConfig::default(),
+            firewall: FirewallConfig::default(),
         }
     }
 }
@@ -134,8 +148,8 @@ impl Installer {
         let parts = disk::detect_partitions(&self.config.device)?;
         let luks_config = LuksConfig::default();
 
-        luks::format_luks(&parts.luks, &self.config.passphrase, &luks_config)?;
-        luks::open_luks(&parts.luks, &self.luks_name, &self.config.passphrase)?;
+        format_luks(&parts.luks, &self.config.passphrase, &luks_config)?;
+        open_luks(&parts.luks, &self.luks_name, &self.config.passphrase)?;
 
         Ok(())
     }
@@ -146,8 +160,8 @@ impl Installer {
         let mapper_device = PathBuf::from(format!("/dev/mapper/{}", self.luks_name));
         let layout = BtrfsLayout::default();
 
-        btrfs::format_btrfs(&mapper_device, "mkos")?;
-        btrfs::create_subvolumes(&mapper_device, &layout)?;
+        format_btrfs(&mapper_device, "mkos")?;
+        create_subvolumes(&mapper_device, &layout)?;
 
         Ok(())
     }
@@ -160,7 +174,7 @@ impl Installer {
         let parts = disk::detect_partitions(&self.config.device)?;
 
         std::fs::create_dir_all(&self.target)?;
-        btrfs::mount_subvolumes(&mapper_device, &layout, &self.target)?;
+        mount_subvolumes(&mapper_device, &layout, &self.target)?;
 
         // Mount EFI partition
         let boot_dir = self.target.join("boot");
@@ -194,19 +208,53 @@ impl Installer {
                     self.config.desktop.greeter.as_deref(),
                     needs_pam_rundir,
                 )?;
+
+                // Configure greetd if that's the display manager
+                if dm == "greetd" {
+                    configure_greetd(
+                        &self.target,
+                        self.config.desktop.greeter.as_deref(),
+                        self.config.desktop.greetd_config.as_ref(),
+                    )?;
+                }
+            }
+
+            // Install XDG desktop portals if enabled
+            if self.config.desktop.portals {
+                println!("Installing XDG desktop portals...");
+                let backends: Vec<&str> = self
+                    .config
+                    .desktop
+                    .portal_backends
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect();
+                distro.install_portals(&self.target, &backends)?;
             }
         }
 
         // Set up user-level services if enabled
         if self.config.desktop.user_services {
-            println!("Setting up user-level s6 services...");
-            crate::user_services::setup_user_s6(&self.target)?;
+            println!("Setting up user-level services...");
+            crate::user_services::setup_user_services(&self.target, distro.as_ref())?;
         }
 
         // Install audio (PipeWire) if enabled
-        if self.config.audio_enabled {
+        if self.config.audio.enabled {
             println!("Installing audio support (pipewire)...");
-            crate::audio::setup_audio(&self.target, distro.as_ref())?;
+            crate::audio::setup_audio(&self.target, &self.config.audio, distro.as_ref())?;
+        }
+
+        // Set up network services (mDNS, SSH, ET)
+        if crate::network::has_network_services(&self.config.network) {
+            println!("Setting up network services...");
+            crate::network::setup_network(&self.target, &self.config.network, distro.as_ref())?;
+        }
+
+        // Set up firewall (nftables)
+        if self.config.firewall.enabled {
+            println!("Setting up firewall (nftables)...");
+            crate::firewall::setup_firewall(&self.target, &self.config.firewall, distro.as_ref())?;
         }
 
         // Install extra packages (e.g., GPU drivers)
@@ -227,7 +275,7 @@ impl Installer {
 
         // Generate crypttab with LUKS UUID
         let parts = disk::detect_partitions(&self.config.device)?;
-        let luks_uuid = luks::get_uuid(&parts.luks)?;
+        let luks_uuid = get_uuid(&parts.luks)?;
         chroot::generate_crypttab(&self.target, &luks_uuid)?;
 
         // Set up chroot environment for subsequent steps
@@ -249,6 +297,12 @@ impl Installer {
         chroot::configure_system(&self.target, &sys_config)?;
         chroot::set_root_password(&self.target, &self.config.root_password)?;
 
+        // Configure sudoers for wheel group
+        chroot::configure_sudoers(&self.target)?;
+
+        // Configure nsswitch (with mDNS if enabled)
+        chroot::configure_nsswitch(&self.target, self.config.network.mdns)?;
+
         Ok(())
     }
 
@@ -262,10 +316,10 @@ impl Installer {
     }
 
     fn setup_boot(&self) -> Result<()> {
-        println!("\n[8/9] Setting up boot...");
+        println!("\n[8/9] Setting up boot (UKI)...");
 
         let parts = disk::detect_partitions(&self.config.device)?;
-        let luks_uuid = luks::get_uuid(&parts.luks)?;
+        let luks_uuid = get_uuid(&parts.luks)?;
 
         let boot_config = BootConfig {
             luks_uuid: luks_uuid.clone(),
@@ -273,11 +327,13 @@ impl Installer {
             subvol: "@".into(),
         };
 
+        // Generate dracut config and build UKI
         uki::generate_dracut_config(&self.target, &boot_config)?;
-        uki::generate_initramfs(&self.target)?;
-        uki::setup_efistub(&self.target, &boot_config)?;
-        uki::create_startup_script(&self.target, &boot_config)?;
-        uki::create_boot_entry(&self.config.device, 1, &boot_config)?;
+        let uki_name = uki::generate_uki(&self.target, &boot_config)?;
+
+        // Create fallback startup script and EFI boot entry
+        uki::create_startup_script(&self.target, &uki_name)?;
+        uki::create_boot_entry(&self.config.device, 1, &uki_name)?;
 
         // Tear down chroot environment
         chroot::teardown_chroot(&self.target)?;
@@ -292,5 +348,71 @@ impl Installer {
         snapshot::create_install_snapshot(&self.target)?;
 
         Ok(())
+    }
+}
+
+/// Configure greetd display manager
+fn configure_greetd(
+    root: &std::path::Path,
+    greeter: Option<&str>,
+    config: Option<&GreetdConfig>,
+) -> Result<()> {
+    let greetd_dir = root.join("etc/greetd");
+    std::fs::create_dir_all(&greetd_dir)?;
+
+    let vt = config.map(|c| c.vt).unwrap_or(7);
+
+    // Build the command based on greeter
+    let command = if let Some(cfg) = config {
+        if let Some(cmd) = &cfg.command {
+            // Use explicit command from config
+            cmd.clone()
+        } else {
+            build_greeter_command(greeter, cfg)
+        }
+    } else {
+        build_greeter_command(greeter, &GreetdConfig::default())
+    };
+
+    let config_content = format!(
+        "[terminal]\n\
+         vt = {}\n\n\
+         [default_session]\n\
+         command = \"{}\"\n\
+         user = \"greeter\"\n",
+        vt, command
+    );
+
+    std::fs::write(greetd_dir.join("config.toml"), config_content)?;
+
+    Ok(())
+}
+
+/// Build the greeter command based on greeter type and config
+fn build_greeter_command(greeter: Option<&str>, config: &GreetdConfig) -> String {
+    match greeter {
+        Some("regreet") => {
+            let cage_opts = if config.cage_options.is_empty() {
+                "-s".to_string()
+            } else {
+                config.cage_options.join(" ")
+            };
+
+            let env_vars = if config.environment.is_empty() {
+                String::new()
+            } else {
+                let vars: Vec<String> = config
+                    .environment
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", k, v))
+                    .collect();
+                format!("{} ", vars.join(" "))
+            };
+
+            format!("{}cage {} -- regreet", env_vars, cage_opts)
+        }
+        Some("tuigreet") => "tuigreet --cmd /bin/sh".to_string(),
+        Some("gtkgreet") => "cage -s -- gtkgreet".to_string(),
+        _ => "agreety --cmd /bin/sh".to_string(),
     }
 }

@@ -1,57 +1,61 @@
+//! Audio setup using PipeWire stack
+
 use anyhow::Result;
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use crate::distro::Distro;
+use crate::init::ServiceSpec;
+use crate::manifest::AudioConfig;
 
-/// Audio packages to install for PipeWire stack
-const AUDIO_PACKAGES: &[&str] = &[
-    "pipewire",
-    "wireplumber",
-];
+/// Set up audio (PipeWire + WirePlumber) based on configuration
+pub fn setup_audio(root: &Path, config: &AudioConfig, distro: &dyn Distro) -> Result<()> {
+    if !config.enabled {
+        return Ok(());
+    }
 
-/// Set up audio (PipeWire + WirePlumber)
-pub fn setup_audio(root: &Path, distro: &dyn Distro) -> Result<()> {
-    install_audio_packages(root, distro)?;
-    setup_user_audio_services(root)?;
+    install_audio_packages(root, config, distro)?;
+    setup_user_audio_services(root, config, distro)?;
     Ok(())
 }
 
-/// Install PipeWire audio stack packages
-fn install_audio_packages(root: &Path, distro: &dyn Distro) -> Result<()> {
-    distro.install_packages(root, AUDIO_PACKAGES)
+/// Install PipeWire audio stack packages based on configuration
+fn install_audio_packages(root: &Path, config: &AudioConfig, distro: &dyn Distro) -> Result<()> {
+    // Core packages (always installed when audio is enabled)
+    let mut packages = vec!["pipewire", "wireplumber"];
+
+    // Optional compatibility layers
+    if config.pulseaudio_compat {
+        packages.push("pipewire-pulse");
+    }
+    if config.alsa_compat {
+        packages.push("pipewire-alsa");
+    }
+    if config.jack_compat {
+        packages.push("pipewire-jack");
+    }
+
+    distro.install_packages(root, &packages)
 }
 
-/// Create user service templates in /etc/skel for pipewire and wireplumber
-fn setup_user_audio_services(root: &Path) -> Result<()> {
-    // Create s6 service directories in /etc/skel
-    let skel_sv = root.join("etc/skel/.config/s6/sv");
+/// Create user service templates for audio services
+fn setup_user_audio_services(root: &Path, config: &AudioConfig, distro: &dyn Distro) -> Result<()> {
+    let init = distro.init_system();
 
-    // PipeWire service
-    let pipewire_dir = skel_sv.join("pipewire");
-    std::fs::create_dir_all(&pipewire_dir)?;
+    // PipeWire service (always created)
+    let pipewire = ServiceSpec::longrun("pipewire", "pipewire");
+    init.create_user_service(root, &pipewire)?;
 
-    let pipewire_run = r#"#!/bin/sh
-exec pipewire
-"#;
-    let pipewire_run_path = pipewire_dir.join("run");
-    std::fs::write(&pipewire_run_path, pipewire_run)?;
-    std::fs::set_permissions(&pipewire_run_path, std::fs::Permissions::from_mode(0o755))?;
+    // WirePlumber service (always created, waits for pipewire)
+    let wireplumber = ServiceSpec::longrun("wireplumber", "wireplumber")
+        .wait_for("${XDG_RUNTIME_DIR}/pipewire-0");
+    init.create_user_service(root, &wireplumber)?;
 
-    // WirePlumber service
-    let wireplumber_dir = skel_sv.join("wireplumber");
-    std::fs::create_dir_all(&wireplumber_dir)?;
-
-    let wireplumber_run = r#"#!/bin/sh
-# Wait for pipewire socket
-while [ ! -e "${XDG_RUNTIME_DIR}/pipewire-0" ]; do
-    sleep 0.1
-done
-exec wireplumber
-"#;
-    let wireplumber_run_path = wireplumber_dir.join("run");
-    std::fs::write(&wireplumber_run_path, wireplumber_run)?;
-    std::fs::set_permissions(&wireplumber_run_path, std::fs::Permissions::from_mode(0o755))?;
+    // pipewire-pulse service (optional, waits for pipewire)
+    if config.pulseaudio_compat {
+        let pipewire_pulse = ServiceSpec::longrun("pipewire-pulse", "pipewire-pulse")
+            .wait_for("${XDG_RUNTIME_DIR}/pipewire-0");
+        init.create_user_service(root, &pipewire_pulse)?;
+    }
 
     Ok(())
 }

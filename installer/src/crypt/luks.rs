@@ -1,8 +1,10 @@
+use super::DiskEncryption;
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
 use crate::cmd;
 
+/// LUKS encryption configuration
 #[derive(Debug, Clone)]
 pub struct LuksConfig {
     pub cipher: String,
@@ -24,58 +26,110 @@ impl Default for LuksConfig {
     }
 }
 
-pub fn format_luks(partition: &Path, passphrase: &str, config: &LuksConfig) -> Result<()> {
-    let partition_str = partition.to_string_lossy();
+/// LUKS2 disk encryption implementation with Argon2id
+#[derive(Debug, Clone)]
+pub struct Luks2 {
+    pub config: LuksConfig,
+}
 
-    cmd::run_with_stdin(
-        "cryptsetup",
-        [
-            "luksFormat",
-            "--type",
-            "luks2",
-            "--cipher",
-            &config.cipher,
-            "--key-size",
-            &config.key_size.to_string(),
-            "--hash",
-            &config.hash,
-            "--iter-time",
-            &config.iter_time.to_string(),
-            "--label",
-            &config.label,
-            "--pbkdf",
-            "argon2id",
-            "--batch-mode",
-            "--key-file=-",
-            &partition_str,
-        ],
-        passphrase.as_bytes(),
-    )
+impl Default for Luks2 {
+    fn default() -> Self {
+        Self {
+            config: LuksConfig::default(),
+        }
+    }
+}
+
+impl Luks2 {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_config(config: LuksConfig) -> Self {
+        Self { config }
+    }
+
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.config.label = label.into();
+        self
+    }
+}
+
+impl DiskEncryption for Luks2 {
+    fn name(&self) -> &str {
+        "luks2"
+    }
+
+    fn format(&self, partition: &Path, passphrase: &str) -> Result<()> {
+        let partition_str = partition.to_string_lossy();
+
+        cmd::run_with_stdin(
+            "cryptsetup",
+            [
+                "luksFormat",
+                "--type",
+                "luks2",
+                "--cipher",
+                &self.config.cipher,
+                "--key-size",
+                &self.config.key_size.to_string(),
+                "--hash",
+                &self.config.hash,
+                "--iter-time",
+                &self.config.iter_time.to_string(),
+                "--label",
+                &self.config.label,
+                "--pbkdf",
+                "argon2id",
+                "--batch-mode",
+                "--key-file=-",
+                &partition_str,
+            ],
+            passphrase.as_bytes(),
+        )
+    }
+
+    fn open(&self, partition: &Path, name: &str, passphrase: &str) -> Result<PathBuf> {
+        let partition_str = partition.to_string_lossy();
+
+        cmd::run_with_stdin(
+            "cryptsetup",
+            [
+                "open",
+                "--type",
+                "luks2",
+                "--key-file=-",
+                &partition_str,
+                name,
+            ],
+            passphrase.as_bytes(),
+        )?;
+
+        Ok(PathBuf::from(format!("/dev/mapper/{}", name)))
+    }
+
+    fn close(&self, name: &str) -> Result<()> {
+        cmd::run("cryptsetup", ["close", name])
+    }
+
+    fn get_uuid(&self, partition: &Path) -> Result<String> {
+        cmd::run_output("cryptsetup", ["luksUUID", &partition.to_string_lossy()])
+    }
+}
+
+// Legacy function wrappers for backwards compatibility during migration
+pub fn format_luks(partition: &Path, passphrase: &str, config: &LuksConfig) -> Result<()> {
+    Luks2::with_config(config.clone()).format(partition, passphrase)
 }
 
 pub fn open_luks(partition: &Path, name: &str, passphrase: &str) -> Result<PathBuf> {
-    let partition_str = partition.to_string_lossy();
-
-    cmd::run_with_stdin(
-        "cryptsetup",
-        [
-            "open",
-            "--type",
-            "luks2",
-            "--key-file=-",
-            &partition_str,
-            name,
-        ],
-        passphrase.as_bytes(),
-    )?;
-
-    Ok(PathBuf::from(format!("/dev/mapper/{}", name)))
+    Luks2::new().open(partition, name, passphrase)
 }
 
 pub fn close_luks(name: &str) -> Result<()> {
-    cmd::run("cryptsetup", ["close", name])
+    Luks2::new().close(name)
 }
 
 pub fn get_uuid(partition: &Path) -> Result<String> {
-    cmd::run_output("cryptsetup", ["luksUUID", &partition.to_string_lossy()])
+    Luks2::new().get_uuid(partition)
 }

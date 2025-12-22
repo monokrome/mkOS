@@ -1,5 +1,4 @@
-use anyhow::{bail, Context, Result};
-use rpassword;
+use anyhow::{bail, Result};
 use std::env;
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -10,6 +9,7 @@ use crate::distro::DistroKind;
 use crate::install::{DesktopConfig, InstallConfig, Installer, SwapConfig};
 use crate::manifest::{self, Manifest, ManifestBundle, ManifestSource};
 use crate::mirror;
+use crate::prompt::{self, FieldSpec, FieldValue};
 
 #[derive(Debug, Clone, PartialEq)]
 enum GpuVendor {
@@ -221,6 +221,9 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
             display_manager: manifest.desktop.display_manager.clone(),
             greeter: manifest.desktop.greeter.clone(),
             user_services: manifest.desktop.user_services,
+            portals: manifest.desktop.portals,
+            portal_backends: manifest.desktop.portal_backends.clone(),
+            greetd_config: manifest.desktop.greetd.clone(),
         }
     } else {
         prompt_desktop_config()?
@@ -241,15 +244,30 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
     };
 
     // Audio configuration - from manifest or prompt
-    let audio_enabled = if manifest.audio {
+    let audio = if manifest.audio.enabled {
         println!("Audio enabled from manifest");
-        true
+        manifest.audio.clone()
     } else if desktop.enabled {
         println!("\n  Audio: pipewire (automatic with desktop)");
-        true
+        // Enable audio with defaults when desktop is enabled
+        crate::manifest::AudioConfig {
+            enabled: true,
+            ..Default::default()
+        }
+    } else if prompt_yes_no("\nEnable audio support (pipewire)", false)? {
+        crate::manifest::AudioConfig {
+            enabled: true,
+            ..Default::default()
+        }
     } else {
-        prompt_yes_no("\nEnable audio support (pipewire)", false)?
+        crate::manifest::AudioConfig::default()
     };
+
+    // Network config from manifest (no interactive prompts yet)
+    let network = manifest.network.clone();
+
+    // Firewall config from manifest (no interactive prompts yet)
+    let firewall = manifest.firewall.clone();
 
     Ok(InstallConfig {
         device,
@@ -264,7 +282,9 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
         extra_packages,
         desktop,
         swap,
-        audio_enabled,
+        audio,
+        network,
+        firewall,
     })
 }
 
@@ -298,12 +318,24 @@ fn prompt_desktop_config() -> Result<DesktopConfig> {
         false
     };
 
+    // Ask about XDG desktop portals
+    let portals = prompt_yes_no("Enable XDG desktop portals (screen sharing, file dialogs)", true)?;
+    let portal_backends = if portals {
+        // Default to wlr + gtk for Wayland setups
+        vec!["wlr".to_string(), "gtk".to_string()]
+    } else {
+        Vec::new()
+    };
+
     Ok(DesktopConfig {
         enabled: true,
         seat_manager,
         display_manager,
         greeter,
         user_services,
+        portals,
+        portal_backends,
+        greetd_config: None, // Uses defaults, manifest can override
     })
 }
 
@@ -487,14 +519,26 @@ fn print_summary(config: &InstallConfig) {
         println!("  Swap:       disabled");
     }
     // Audio
-    println!(
-        "  Audio:      {}",
-        if config.audio_enabled {
-            "pipewire"
-        } else {
-            "disabled"
+    if config.audio.enabled {
+        let mut compat = Vec::new();
+        if config.audio.pulseaudio_compat {
+            compat.push("pulse");
         }
-    );
+        if config.audio.alsa_compat {
+            compat.push("alsa");
+        }
+        if config.audio.jack_compat {
+            compat.push("jack");
+        }
+        let compat_str = if compat.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", compat.join("+"))
+        };
+        println!("  Audio:      pipewire{}", compat_str);
+    } else {
+        println!("  Audio:      disabled");
+    }
     if !config.extra_packages.is_empty() {
         println!("  Extra pkgs: {}", config.extra_packages.join(", "));
     }
@@ -522,7 +566,6 @@ fn prompt(msg: &str) -> Result<String> {
     let mut input = String::new();
     let bytes_read = io::stdin().read_line(&mut input)?;
 
-    // If EOF is reached (bytes_read == 0), fail fast instead of looping
     if bytes_read == 0 {
         bail!("Unexpected end of input. Is stdin connected to a terminal?");
     }
@@ -531,34 +574,21 @@ fn prompt(msg: &str) -> Result<String> {
 }
 
 fn prompt_default(name: &str, default: &str) -> Result<String> {
-    let input = prompt(&format!("{} [{}]: ", name, default))?;
-    if input.is_empty() {
-        Ok(default.to_string())
-    } else {
-        Ok(input)
+    let spec = FieldSpec::text_default("_inline", name, default);
+    match prompt::prompt_field(&spec)? {
+        FieldValue::Text(s) => Ok(s),
+        _ => Ok(default.to_string()),
     }
 }
 
 fn prompt_yes_no(name: &str, default: bool) -> Result<bool> {
-    let default_str = if default { "Y/n" } else { "y/N" };
-    let input = prompt(&format!("{} [{}]: ", name, default_str))?;
-    let input_lower = input.to_lowercase();
-
-    if input_lower.is_empty() {
-        Ok(default)
-    } else if input_lower == "y" || input_lower == "yes" {
-        Ok(true)
-    } else if input_lower == "n" || input_lower == "no" {
-        Ok(false)
-    } else {
-        Ok(default)
-    }
+    prompt::prompt_yes_no(name, default)
 }
 
 fn prompt_passphrase() -> Result<String> {
     loop {
         let pass1 = rpassword::prompt_password("Encryption passphrase: ")
-            .context("Failed to read passphrase")?;
+            .map_err(|e| anyhow::anyhow!("Failed to read passphrase: {}", e))?;
 
         if pass1.len() < 8 {
             println!("Passphrase must be at least 8 characters");
@@ -566,7 +596,7 @@ fn prompt_passphrase() -> Result<String> {
         }
 
         let pass2 = rpassword::prompt_password("Confirm passphrase: ")
-            .context("Failed to read passphrase")?;
+            .map_err(|e| anyhow::anyhow!("Failed to read passphrase: {}", e))?;
 
         if pass1 != pass2 {
             println!("Passphrases do not match");
@@ -578,23 +608,9 @@ fn prompt_passphrase() -> Result<String> {
 }
 
 fn prompt_password_confirm(name: &str) -> Result<String> {
-    loop {
-        let pass1 =
-            rpassword::prompt_password(format!("{}: ", name)).context("Failed to read password")?;
-
-        if pass1.is_empty() {
-            println!("Password cannot be empty");
-            continue;
-        }
-
-        let pass2 = rpassword::prompt_password(format!("Confirm {}: ", name.to_lowercase()))
-            .context("Failed to read password")?;
-
-        if pass1 != pass2 {
-            println!("Passwords do not match");
-            continue;
-        }
-
-        return Ok(pass1);
+    let spec = FieldSpec::password_confirm("_inline", name);
+    match prompt::prompt_field(&spec)? {
+        FieldValue::Text(s) => Ok(s),
+        _ => bail!("Password is required"),
     }
 }
