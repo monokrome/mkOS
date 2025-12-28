@@ -89,7 +89,7 @@ fn setup_swapfile(root: &Path, size_gb: u32) -> Result<()> {
 
     let existing = std::fs::read_to_string(&fstab_path).unwrap_or_default();
     if !existing.contains("/swapfile") {
-        let new_content = format!("{}{}", existing.trim_end(), format!("\n{}", fstab_entry));
+        let new_content = format!("{}\n{}", existing.trim_end(), fstab_entry);
         std::fs::write(&fstab_path, new_content)?;
     }
 

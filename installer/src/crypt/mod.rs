@@ -3,6 +3,7 @@ mod luks;
 pub mod snapshot;
 
 use anyhow::Result;
+use std::fmt;
 use std::path::{Path, PathBuf};
 
 // Re-export implementations
@@ -21,8 +22,8 @@ pub struct MountOptions {
     pub extra: Vec<String>,
 }
 
-impl MountOptions {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for MountOptions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut opts = Vec::new();
 
         if let Some(ref comp) = self.compress {
@@ -33,7 +34,7 @@ impl MountOptions {
         }
         opts.extend(self.extra.clone());
 
-        opts.join(",")
+        write!(f, "{}", opts.join(","))
     }
 }
 

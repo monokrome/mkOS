@@ -27,17 +27,9 @@ impl Default for LuksConfig {
 }
 
 /// LUKS2 disk encryption implementation with Argon2id
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Luks2 {
     pub config: LuksConfig,
-}
-
-impl Default for Luks2 {
-    fn default() -> Self {
-        Self {
-            config: LuksConfig::default(),
-        }
-    }
 }
 
 impl Luks2 {
