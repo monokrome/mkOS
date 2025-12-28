@@ -414,7 +414,11 @@ fn prompt_optional_select(
 
     loop {
         let default_num = default.map(|d| d + 1).unwrap_or(options.len() + 1);
-        print!("Select [1-{}, default={}]: ", options.len() + 1, default_num);
+        print!(
+            "Select [1-{}, default={}]: ",
+            options.len() + 1,
+            default_num
+        );
         io::stdout().flush()?;
 
         let input = read_line()?;
@@ -489,8 +493,7 @@ mod tests {
 
     #[test]
     fn test_select_option_builder() {
-        let opt = SelectOption::new("val", "Label")
-            .with_description("A description");
+        let opt = SelectOption::new("val", "Label").with_description("A description");
         assert_eq!(opt.value, "val");
         assert_eq!(opt.label, "Label");
         assert_eq!(opt.description, Some("A description".to_string()));

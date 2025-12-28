@@ -291,7 +291,12 @@ pub fn generate_uki(target: &Path, config: &BootConfig) -> Result<String> {
     boot.build_initramfs(target)?;
     let entry = boot.build_boot_image(target, config)?;
     // Return just the filename portion
-    Ok(entry.loader_path.rsplit('/').next().unwrap_or("mkos.efi").to_string())
+    Ok(entry
+        .loader_path
+        .rsplit('/')
+        .next()
+        .unwrap_or("mkos.efi")
+        .to_string())
 }
 
 pub fn create_startup_script(target: &Path, uki_name: &str) -> Result<()> {

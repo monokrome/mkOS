@@ -319,7 +319,10 @@ fn prompt_desktop_config() -> Result<DesktopConfig> {
     };
 
     // Ask about XDG desktop portals
-    let portals = prompt_yes_no("Enable XDG desktop portals (screen sharing, file dialogs)", true)?;
+    let portals = prompt_yes_no(
+        "Enable XDG desktop portals (screen sharing, file dialogs)",
+        true,
+    )?;
     let portal_backends = if portals {
         // Default to wlr + gtk for Wayland setups
         vec!["wlr".to_string(), "gtk".to_string()]
@@ -493,18 +496,14 @@ fn print_summary(config: &InstallConfig) {
     }
     // Swap
     let swap_parts: Vec<String> = [
-        config.swap.zram_enabled.then(|| {
-            format!(
-                "zram {}GB",
-                config.swap.zram_size_gb.unwrap_or(8)
-            )
-        }),
-        config.swap.swapfile_enabled.then(|| {
-            format!(
-                "swapfile {}GB",
-                config.swap.swapfile_size_gb.unwrap_or(8)
-            )
-        }),
+        config
+            .swap
+            .zram_enabled
+            .then(|| format!("zram {}GB", config.swap.zram_size_gb.unwrap_or(8))),
+        config
+            .swap
+            .swapfile_enabled
+            .then(|| format!("swapfile {}GB", config.swap.swapfile_size_gb.unwrap_or(8))),
     ]
     .into_iter()
     .flatten()

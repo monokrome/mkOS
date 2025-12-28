@@ -57,9 +57,18 @@ impl Default for Artix {
 
         // XDG Desktop Portals
         package_map.insert("xdg-desktop-portal".into(), "xdg-desktop-portal".into());
-        package_map.insert("xdg-desktop-portal-wlr".into(), "xdg-desktop-portal-wlr".into());
-        package_map.insert("xdg-desktop-portal-gtk".into(), "xdg-desktop-portal-gtk".into());
-        package_map.insert("xdg-desktop-portal-kde".into(), "xdg-desktop-portal-kde".into());
+        package_map.insert(
+            "xdg-desktop-portal-wlr".into(),
+            "xdg-desktop-portal-wlr".into(),
+        );
+        package_map.insert(
+            "xdg-desktop-portal-gtk".into(),
+            "xdg-desktop-portal-gtk".into(),
+        );
+        package_map.insert(
+            "xdg-desktop-portal-kde".into(),
+            "xdg-desktop-portal-kde".into(),
+        );
 
         // Fonts
         package_map.insert("font-hack".into(), "ttf-hack".into());

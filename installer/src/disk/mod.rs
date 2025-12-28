@@ -98,9 +98,12 @@ pub fn validate_device(device: &Path) -> Result<()> {
         // Could be a partition like /dev/sda1 or /dev/nvme0n1p1
         // But /dev/nvme0n1 is valid (ends in digit but is a whole disk)
         // Check if it looks like a partition suffix
-        if path_str.contains('p') && path_str.rfind('p').map(|i| {
-            path_str[i+1..].chars().all(|c| c.is_ascii_digit())
-        }).unwrap_or(false) {
+        if path_str.contains('p')
+            && path_str
+                .rfind('p')
+                .map(|i| path_str[i + 1..].chars().all(|c| c.is_ascii_digit()))
+                .unwrap_or(false)
+        {
             anyhow::bail!(
                 "{} appears to be a partition, not a whole disk",
                 device.display()

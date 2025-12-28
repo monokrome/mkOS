@@ -224,10 +224,7 @@ impl Distro for Void {
             .context("Failed to run genfstab")?;
 
         if !output.status.success() {
-            anyhow::bail!(
-                "genfstab failed with exit code {:?}",
-                output.status.code()
-            );
+            anyhow::bail!("genfstab failed with exit code {:?}", output.status.code());
         }
 
         String::from_utf8(output.stdout).context("Invalid UTF-8 in fstab output")

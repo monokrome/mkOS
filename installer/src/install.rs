@@ -194,7 +194,12 @@ impl Installer {
 
         // Install desktop base packages if enabled (seat manager, polkit, etc.)
         if self.config.desktop.enabled {
-            let seat_manager = self.config.desktop.seat_manager.as_deref().unwrap_or("seatd");
+            let seat_manager = self
+                .config
+                .desktop
+                .seat_manager
+                .as_deref()
+                .unwrap_or("seatd");
             println!("Installing desktop session support ({})...", seat_manager);
             distro.install_desktop_base(&self.target, seat_manager)?;
 

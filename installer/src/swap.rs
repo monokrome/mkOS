@@ -57,8 +57,7 @@ swapon -p 100 /dev/zram0
     let link_path = default_dir.join("zram");
 
     if !link_path.exists() {
-        std::os::unix::fs::symlink(&sv_dir, &link_path)
-            .context("Failed to enable zram service")?;
+        std::os::unix::fs::symlink(&sv_dir, &link_path).context("Failed to enable zram service")?;
     }
 
     Ok(())
@@ -76,10 +75,7 @@ fn setup_swapfile(root: &Path, size_gb: u32) -> Result<()> {
     cmd::run("chattr", ["+C", &swapfile_str])?;
 
     // Allocate space
-    cmd::run(
-        "fallocate",
-        ["-l", &format!("{}G", size_gb), &swapfile_str],
-    )?;
+    cmd::run("fallocate", ["-l", &format!("{}G", size_gb), &swapfile_str])?;
 
     // Set permissions (600)
     std::fs::set_permissions(&swapfile, std::fs::Permissions::from_mode(0o600))?;

@@ -72,8 +72,7 @@ fn setup_eternalterminal(root: &Path, config: &EtConfig, distro: &dyn Distro) ->
         config.port
     );
 
-    std::fs::write(root.join("etc/et.cfg"), et_config)
-        .context("Failed to write /etc/et.cfg")?;
+    std::fs::write(root.join("etc/et.cfg"), et_config).context("Failed to write /etc/et.cfg")?;
 
     // Enable etserver service
     let service = distro.map_service("etserver");

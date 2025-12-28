@@ -23,10 +23,7 @@ pub fn setup_firewall(root: &Path, config: &FirewallConfig, distro: &dyn Distro)
         .context("Failed to write /etc/nftables.conf")?;
 
     // Create oneshot service to load rules at boot
-    let nftables_service = ServiceSpec::oneshot(
-        "nftables",
-        "nft -f /etc/nftables.conf",
-    );
+    let nftables_service = ServiceSpec::oneshot("nftables", "nft -f /etc/nftables.conf");
 
     let init = distro.init_system();
     init.create_service(root, &nftables_service)?;

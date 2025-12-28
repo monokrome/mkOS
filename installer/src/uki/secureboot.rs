@@ -76,11 +76,8 @@ fn generate_key_pair(dir: &Path, name: &str, cn: &str, guid: &str) -> Result<()>
     .context(format!("Failed to generate {} key pair", name))?;
 
     // Convert to EFI signature list
-    cmd::run(
-        "cert-to-efi-sig-list",
-        ["-g", guid, &cert_str, &esl_str],
-    )
-    .context(format!("Failed to create {} ESL", name))?;
+    cmd::run("cert-to-efi-sig-list", ["-g", guid, &cert_str, &esl_str])
+        .context(format!("Failed to create {} ESL", name))?;
 
     // Create signed update for enrollment
     let (sign_key, sign_cert) = if name == "PK" {
