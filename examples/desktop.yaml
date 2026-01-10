@@ -1,3 +1,14 @@
+# mkOS Desktop Manifest Example
+#
+# This manifest defines a desktop workstation with Wayland compositor support.
+#
+# Usage:
+#   mkos-install manifest.yaml         # Fresh installation
+#   mkos apply manifest.yaml           # Apply to existing system
+#   mkos-apply manifest.yaml           # Legacy command (still supported)
+#
+# For more information, see: https://github.com/monokrome/mkOS
+
 system:
   hostname: workstation
   timezone: America/Los_Angeles

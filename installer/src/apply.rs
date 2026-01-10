@@ -17,7 +17,7 @@ pub fn run(source: ManifestSource) -> Result<()> {
     // Load manifest
     let bundle = match &source {
         ManifestSource::Interactive => {
-            bail!("mkos-apply requires a manifest. Usage: mkos-apply <manifest>");
+            bail!("mkos apply requires a manifest.\nUsage: mkos apply <manifest>");
         }
         ManifestSource::File(path) => {
             println!("Loading manifest from: {}\n", path.display());

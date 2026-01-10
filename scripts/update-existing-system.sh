@@ -65,7 +65,7 @@ fi
 echo "  Installing mkos to /usr/local/bin..."
 install -m 755 target/release/mkos /usr/local/bin/
 
-echo "  Installing mkos-apply to /usr/local/bin..."
+echo "  Installing mkos-apply to /usr/local/bin (use 'mkos apply' for new syntax)..."
 install -m 755 target/release/mkos-apply /usr/local/bin/
 
 echo "✓ mkOS binaries installed"
@@ -337,7 +337,7 @@ echo "✓ System update complete!"
 echo ""
 echo "Installed binaries in /usr/local/bin:"
 echo "  • mkos             - System upgrade with snapshots"
-echo "  • mkos-apply       - Apply mkOS manifests"
+echo "  • mkos apply       - Apply mkOS manifests (mkos-apply also available)"
 echo "  • mkos-rebuild-uki - Rebuild UKI manually"
 echo ""
 echo "Installed hooks:"

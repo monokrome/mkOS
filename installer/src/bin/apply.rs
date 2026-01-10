@@ -15,7 +15,7 @@ fn main() -> Result<()> {
 
     // Validate that a manifest was provided
     if matches!(source, ManifestSource::Interactive) {
-        bail!("mkos-apply requires a manifest. Usage: mkos-apply <manifest>");
+        bail!("mkos-apply requires a manifest.\nUsage: mkos apply <manifest> (or mkos-apply <manifest>)");
     }
 
     apply::run(source)
