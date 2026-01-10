@@ -104,8 +104,7 @@ fn upgrade() -> Result<()> {
     let timestamp = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S");
     let snapshot_name = format!("pre-upgrade-{}", timestamp);
 
-    create_btrfs_snapshot(&snapshot_name)
-        .context("Failed to create snapshot")?;
+    create_btrfs_snapshot(&snapshot_name).context("Failed to create snapshot")?;
 
     println!("✓ Created snapshot: {}\n", snapshot_name);
 
@@ -168,7 +167,12 @@ fn create_btrfs_snapshot(name: &str) -> Result<()> {
 
     // Mount btrfs root (subvolid=5)
     let mount_status = Command::new("mount")
-        .args(["-o", "subvolid=5", &root_device, temp_mount.to_str().unwrap()])
+        .args([
+            "-o",
+            "subvolid=5",
+            &root_device,
+            temp_mount.to_str().unwrap(),
+        ])
         .status()
         .context("Failed to mount btrfs root")?;
 
