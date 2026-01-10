@@ -8,9 +8,10 @@ echo "mkOS System Update Script"
 echo "========================="
 echo ""
 echo "This script will:"
-echo "  1. Install pacman hook for automatic UKI rebuild on kernel upgrades"
-echo "  2. Install UKI rebuild script at /usr/local/bin/mkos-rebuild-uki"
-echo "  3. Optionally rebuild your current UKI"
+echo "  1. Build and install mkOS binaries to /usr/local/bin"
+echo "  2. Install pacman hook for automatic UKI rebuild on kernel upgrades"
+echo "  3. Install UKI rebuild script at /usr/local/bin/mkos-rebuild-uki"
+echo "  4. Optionally rebuild your current UKI"
 echo ""
 
 # Check if running as root
@@ -29,8 +30,35 @@ if [ ! -f /etc/crypttab ] || [ ! -d /boot/EFI/Linux ]; then
     fi
 fi
 
+# Detect script directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
 echo ""
-echo "[1/3] Installing pacman hook..."
+echo "[1/4] Building and installing mkOS binaries..."
+
+# Check if we're in the right directory
+if [ ! -f "$PROJECT_ROOT/installer/Cargo.toml" ]; then
+    echo "ERROR: Cannot find installer/Cargo.toml. Are you running this from the mkOS repository?"
+    exit 1
+fi
+
+# Build release binaries
+echo "  Building release binaries (this may take a minute)..."
+cd "$PROJECT_ROOT/installer"
+cargo build --release --quiet
+
+# Install binaries
+echo "  Installing mkos-install to /usr/local/bin..."
+install -m 755 target/release/mkos-install /usr/local/bin/
+
+echo "  Installing mkos-apply to /usr/local/bin..."
+install -m 755 target/release/mkos-apply /usr/local/bin/
+
+echo "✓ mkOS binaries installed"
+
+echo ""
+echo "[2/4] Installing pacman hook..."
 
 # Create hooks directory if it doesn't exist
 mkdir -p /etc/pacman.d/hooks
@@ -55,7 +83,7 @@ EOF
 echo "✓ Pacman hook installed at /etc/pacman.d/hooks/90-mkos-uki.hook"
 
 echo ""
-echo "[2/3] Installing UKI rebuild script..."
+echo "[3/4] Installing UKI rebuild script..."
 
 # Create directory if it doesn't exist
 mkdir -p /usr/local/bin
@@ -154,7 +182,7 @@ chmod +x /usr/local/bin/mkos-rebuild-uki
 echo "✓ UKI rebuild script installed at /usr/local/bin/mkos-rebuild-uki"
 
 echo ""
-echo "[3/3] Rebuild UKI now?"
+echo "[4/4] Rebuild UKI now?"
 echo ""
 echo "It's recommended to rebuild your UKI now to ensure it's up-to-date"
 echo "with your current kernel."
@@ -171,9 +199,13 @@ echo ""
 echo "════════════════════════════════════════════════════════════"
 echo "✓ System update complete!"
 echo ""
-echo "Your system now has:"
+echo "Installed binaries in /usr/local/bin:"
+echo "  • mkos-install     - mkOS installer"
+echo "  • mkos-apply       - Apply mkOS manifests"
+echo "  • mkos-rebuild-uki - Rebuild UKI manually"
+echo ""
+echo "Installed hooks:"
 echo "  • Automatic UKI rebuild on kernel upgrades"
-echo "  • Manual rebuild available via: mkos-rebuild-uki"
 echo ""
 echo "The next time you run 'sudo pacman -Syu' and the kernel is"
 echo "upgraded, the UKI will be automatically rebuilt."
