@@ -160,8 +160,8 @@ fn create_btrfs_snapshot(name: &str) -> Result<()> {
     let snapshots_dir = temp_mount.join(".snapshots");
     fs::create_dir_all(&snapshots_dir)?;
 
-    // Create snapshot of @ subvolume
-    let source = temp_mount.join("@");
+    // Snapshot the currently mounted / (@ subvolume) to the .snapshots directory in btrfs root
+    // We snapshot FROM "/" TO "/tmp/mkos-btrfs-root/.snapshots/name"
     let snapshot_path = snapshots_dir.join(name);
 
     let snapshot_status = Command::new("btrfs")
@@ -169,7 +169,7 @@ fn create_btrfs_snapshot(name: &str) -> Result<()> {
             "subvolume",
             "snapshot",
             "-r",
-            source.to_str().unwrap(),
+            "/",
             snapshot_path.to_str().unwrap(),
         ])
         .status()
