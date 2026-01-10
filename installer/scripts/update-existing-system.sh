@@ -8,10 +8,12 @@ echo "mkOS System Update Script"
 echo "========================="
 echo ""
 echo "This script will:"
-echo "  1. Build and install mkOS binaries to /usr/local/bin"
+echo "  1. Build and install mkos-apply to /usr/local/bin"
 echo "  2. Install pacman hook for automatic UKI rebuild on kernel upgrades"
 echo "  3. Install UKI rebuild script at /usr/local/bin/mkos-rebuild-uki"
 echo "  4. Optionally rebuild your current UKI"
+echo ""
+echo "NOTE: mkos-install is NOT installed (it's for fresh installations only)"
 echo ""
 
 # Get the actual user (even when running with sudo)
@@ -60,10 +62,7 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Install binaries
-echo "  Installing mkos-install to /usr/local/bin..."
-install -m 755 target/release/mkos-install /usr/local/bin/
-
+# Install binaries (skip mkos-install - that's only for fresh installations)
 echo "  Installing mkos-apply to /usr/local/bin..."
 install -m 755 target/release/mkos-apply /usr/local/bin/
 
@@ -212,7 +211,6 @@ echo "════════════════════════�
 echo "✓ System update complete!"
 echo ""
 echo "Installed binaries in /usr/local/bin:"
-echo "  • mkos-install     - mkOS installer"
 echo "  • mkos-apply       - Apply mkOS manifests"
 echo "  • mkos-rebuild-uki - Rebuild UKI manually"
 echo ""
@@ -221,4 +219,7 @@ echo "  • Automatic UKI rebuild on kernel upgrades"
 echo ""
 echo "The next time you run 'sudo pacman -Syu' and the kernel is"
 echo "upgraded, the UKI will be automatically rebuilt."
+echo ""
+echo "NOTE: mkos-install is NOT installed (it's only for fresh"
+echo "      installations and could damage an existing system)."
 echo "════════════════════════════════════════════════════════════"
