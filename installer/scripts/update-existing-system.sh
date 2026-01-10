@@ -14,11 +14,10 @@ echo "  3. Install UKI rebuild script at /usr/local/bin/mkos-rebuild-uki"
 echo "  4. Optionally rebuild your current UKI"
 echo ""
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-   echo "ERROR: This script must be run as root (use sudo)"
-   exit 1
-fi
+# Get the actual user (even when running with sudo)
+ACTUAL_USER="${SUDO_USER:-$USER}"
+ACTUAL_UID="${SUDO_UID:-$UID}"
+ACTUAL_GID="${SUDO_GID:-$(id -g)}"
 
 # Check if this looks like an mkOS system
 if [ ! -f /etc/crypttab ] || [ ! -d /boot/EFI/Linux ]; then
@@ -43,10 +42,23 @@ if [ ! -f "$PROJECT_ROOT/installer/Cargo.toml" ]; then
     exit 1
 fi
 
-# Build release binaries
+# Build release binaries as the actual user (not root)
 echo "  Building release binaries (this may take a minute)..."
 cd "$PROJECT_ROOT/installer"
-cargo build --release --quiet
+
+if [ "$EUID" -eq 0 ] && [ -n "$ACTUAL_USER" ]; then
+    # Running as root via sudo - build as the actual user
+    sudo -u "$ACTUAL_USER" cargo build --release --quiet
+else
+    # Not running as root or no SUDO_USER - just build normally
+    cargo build --release --quiet
+fi
+
+# Check we have root for installation
+if [ "$EUID" -ne 0 ]; then
+    echo "ERROR: Root privileges required for installation. Please run with sudo."
+    exit 1
+fi
 
 # Install binaries
 echo "  Installing mkos-install to /usr/local/bin..."
