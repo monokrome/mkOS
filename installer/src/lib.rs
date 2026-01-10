@@ -1,3 +1,4 @@
+pub mod apply;
 pub mod audio;
 pub mod boot;
 pub mod chroot;

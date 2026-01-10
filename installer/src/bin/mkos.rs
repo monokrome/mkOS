@@ -1,9 +1,10 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use std::env;
 use std::path::Path;
 use std::process::Command;
 
 use mkos::crypt::snapshot;
+use mkos::manifest::ManifestSource;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -17,6 +18,7 @@ fn main() -> Result<()> {
         "update" => update(),
         "upgrade" | "up" => upgrade(),
         "snapshot" => snapshot_cmd(&args[2..]),
+        "apply" => apply(&args[2..]),
         "help" | "--help" | "-h" => {
             print_usage();
             Ok(())
@@ -36,6 +38,7 @@ fn print_usage() {
 Usage:
     mkos update           Update package indexes
     mkos upgrade          Update indexes and upgrade packages (with snapshot)
+    mkos apply <manifest> Apply manifest to system (with snapshot)
     mkos snapshot list    List all snapshots
     mkos snapshot delete <name>  Delete a snapshot
     mkos help             Show this help message
@@ -43,6 +46,7 @@ Usage:
 Examples:
     mkos update           # Update package database only
     mkos upgrade          # Update and upgrade all packages (creates snapshot first)
+    mkos apply config.yml # Apply configuration from manifest file
     mkos snapshot list    # List all available snapshots
 "#
     );
@@ -323,4 +327,21 @@ fn delete_snapshot(name: &str) -> Result<()> {
     println!("✓ Snapshot deleted");
 
     Ok(())
+}
+
+fn apply(args: &[String]) -> Result<()> {
+    // Check if running as root
+    if !nix::unistd::Uid::effective().is_root() {
+        eprintln!("Error: mkos apply must be run as root (use sudo)");
+        std::process::exit(1);
+    }
+
+    let source = ManifestSource::from_arg(args.first().map(|s| s.as_str()));
+
+    // Validate that a manifest was provided
+    if matches!(source, ManifestSource::Interactive) {
+        bail!("mkos apply requires a manifest. Usage: mkos apply <manifest>");
+    }
+
+    mkos::apply::run(source)
 }
