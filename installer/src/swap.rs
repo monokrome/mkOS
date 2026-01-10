@@ -65,7 +65,12 @@ swapon -p 100 /dev/zram0
 
 /// Create swapfile on btrfs (with COW disabled)
 fn setup_swapfile(root: &Path, size_gb: u32) -> Result<()> {
-    let swapfile = root.join("swapfile");
+    // Create /swap directory (for @swap subvolume mount)
+    let swap_dir = root.join("swap");
+    std::fs::create_dir_all(&swap_dir)?;
+
+    // Create swapfile in /swap directory (which will be @swap subvolume)
+    let swapfile = swap_dir.join("swapfile");
     let swapfile_str = swapfile.to_string_lossy().to_string();
 
     // Create empty file first
@@ -85,10 +90,10 @@ fn setup_swapfile(root: &Path, size_gb: u32) -> Result<()> {
 
     // Add to fstab (low priority so zram is preferred)
     let fstab_path = root.join("etc/fstab");
-    let fstab_entry = "/swapfile none swap defaults,pri=10 0 0\n";
+    let fstab_entry = "/swap/swapfile none swap defaults,pri=10 0 0\n";
 
     let existing = std::fs::read_to_string(&fstab_path).unwrap_or_default();
-    if !existing.contains("/swapfile") {
+    if !existing.contains("/swap/swapfile") {
         let new_content = format!("{}\n{}", existing.trim_end(), fstab_entry);
         std::fs::write(&fstab_path, new_content)?;
     }

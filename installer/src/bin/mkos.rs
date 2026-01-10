@@ -127,6 +127,26 @@ fn create_btrfs_snapshot(name: &str) -> Result<()> {
     use std::fs;
     use std::path::PathBuf;
 
+    // Check if there's a swapfile (btrfs can't snapshot subvolumes with active swapfiles)
+    let swapfile_active = Command::new("swapon")
+        .args(["--show", "--noheadings"])
+        .output()
+        .ok()
+        .and_then(|o| {
+            let output = String::from_utf8_lossy(&o.stdout);
+            Some(output.contains("/swapfile"))
+        })
+        .unwrap_or(false);
+
+    // Disable swap if needed
+    if swapfile_active {
+        println!("  Temporarily disabling swap...");
+        Command::new("swapoff")
+            .arg("/swapfile")
+            .status()
+            .context("Failed to disable swap")?;
+    }
+
     // Get the root device
     let findmnt_output = Command::new("findmnt")
         .args(["-n", "-o", "SOURCE", "/"])
@@ -137,7 +157,7 @@ fn create_btrfs_snapshot(name: &str) -> Result<()> {
         .trim()
         .to_string();
 
-    // Strip subvolume notation if present (e.g., "/dev/mapper/cryptroot[/@]" -> "/dev/mapper/cryptroot")
+    // Strip subvolume notation if present
     if let Some(bracket_pos) = root_device.find('[') {
         root_device = root_device[..bracket_pos].to_string();
     }
@@ -146,7 +166,7 @@ fn create_btrfs_snapshot(name: &str) -> Result<()> {
     let temp_mount = PathBuf::from("/tmp/mkos-btrfs-root");
     fs::create_dir_all(&temp_mount)?;
 
-    // Mount btrfs root (subvolid=5) to access all subvolumes at the same level
+    // Mount btrfs root (subvolid=5)
     let mount_status = Command::new("mount")
         .args(["-o", "subvolid=5", &root_device, temp_mount.to_str().unwrap()])
         .status()
@@ -154,10 +174,13 @@ fn create_btrfs_snapshot(name: &str) -> Result<()> {
 
     if !mount_status.success() {
         let _ = fs::remove_dir(&temp_mount);
+        if swapfile_active {
+            let _ = Command::new("swapon").arg("/swapfile").status();
+        }
         anyhow::bail!("Failed to mount btrfs root");
     }
 
-    // Now snapshot @ to @snapshots/name at the btrfs root level
+    // Snapshot @ to @snapshots/name
     let source = temp_mount.join("@");
     let dest = temp_mount.join("@snapshots").join(name);
 
@@ -175,6 +198,12 @@ fn create_btrfs_snapshot(name: &str) -> Result<()> {
     // Unmount temporary mount
     let _ = Command::new("umount").arg(&temp_mount).status();
     let _ = fs::remove_dir(&temp_mount);
+
+    // Re-enable swap if it was active
+    if swapfile_active {
+        println!("  Re-enabling swap...");
+        let _ = Command::new("swapon").arg("/swapfile").status();
+    }
 
     if !snapshot_status.success() {
         anyhow::bail!("btrfs snapshot command failed");

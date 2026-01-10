@@ -34,6 +34,10 @@ impl Default for BtrfsLayout {
                     name: "@snapshots".into(),
                     mountpoint: "/.snapshots".into(),
                 },
+                Subvolume {
+                    name: "@swap".into(),
+                    mountpoint: "/swap".into(),
+                },
             ],
             compress: "zstd:1".into(),
         }
