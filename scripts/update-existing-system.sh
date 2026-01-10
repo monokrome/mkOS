@@ -265,11 +265,19 @@ if [ -f "/swapfile" ] && [ ! -f "/swap/swapfile" ]; then
 
         # Create new swapfile with COW disabled (using dd for btrfs compatibility)
         echo "  Creating new swapfile (${SWAP_SIZE_MB}MB)..."
+        if [ "$SWAP_SIZE_MB" -gt 16384 ]; then
+            echo "  Warning: Large swapfile detected. This may take several minutes..."
+            echo "  System may be slow during creation."
+        fi
+
         touch /swap/swapfile
         chattr +C /swap/swapfile
-        dd if=/dev/zero of=/swap/swapfile bs=1M count="$SWAP_SIZE_MB" status=progress
+
+        # Use ionice to reduce I/O priority and avoid overwhelming the system
+        ionice -c 3 dd if=/dev/zero of=/swap/swapfile bs=1M count="$SWAP_SIZE_MB" status=progress 2>&1 | tail -n 1
+
         chmod 600 /swap/swapfile
-        mkswap /swap/swapfile
+        mkswap /swap/swapfile > /dev/null
 
         # Update fstab
         echo "  Updating /etc/fstab..."
