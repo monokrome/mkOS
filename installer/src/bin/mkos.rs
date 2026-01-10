@@ -100,15 +100,11 @@ fn upgrade() -> Result<()> {
 
     // Create pre-upgrade snapshot
     println!("Creating pre-upgrade snapshot...");
-    let snapshots_dir = Path::new("/.snapshots");
-    if !snapshots_dir.exists() {
-        std::fs::create_dir_all(snapshots_dir)?;
-    }
 
     let timestamp = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S");
     let snapshot_name = format!("pre-upgrade-{}", timestamp);
 
-    snapshot::create_snapshot(snapshots_dir, Path::new("/"), &snapshot_name, true)
+    create_btrfs_snapshot(&snapshot_name)
         .context("Failed to create snapshot")?;
 
     println!("✓ Created snapshot: {}\n", snapshot_name);
@@ -125,6 +121,64 @@ fn upgrade() -> Result<()> {
     }
 
     result
+}
+
+fn create_btrfs_snapshot(name: &str) -> Result<()> {
+    use std::fs;
+    use std::path::PathBuf;
+
+    // Get the root device
+    let findmnt_output = Command::new("findmnt")
+        .args(["-n", "-o", "SOURCE", "/"])
+        .output()
+        .context("Failed to find root device")?;
+
+    let root_device = String::from_utf8_lossy(&findmnt_output.stdout)
+        .trim()
+        .to_string();
+
+    // Create temporary mount point
+    let temp_mount = PathBuf::from("/tmp/mkos-btrfs-root");
+    fs::create_dir_all(&temp_mount)?;
+
+    // Mount btrfs root (subvolid=5)
+    let mount_status = Command::new("mount")
+        .args(["-o", "subvolid=5", &root_device, temp_mount.to_str().unwrap()])
+        .status()
+        .context("Failed to mount btrfs root")?;
+
+    if !mount_status.success() {
+        anyhow::bail!("Failed to mount btrfs root");
+    }
+
+    // Ensure .snapshots directory exists in btrfs root
+    let snapshots_dir = temp_mount.join(".snapshots");
+    fs::create_dir_all(&snapshots_dir)?;
+
+    // Create snapshot of @ subvolume
+    let source = temp_mount.join("@");
+    let snapshot_path = snapshots_dir.join(name);
+
+    let snapshot_status = Command::new("btrfs")
+        .args([
+            "subvolume",
+            "snapshot",
+            "-r",
+            source.to_str().unwrap(),
+            snapshot_path.to_str().unwrap(),
+        ])
+        .status()
+        .context("Failed to create snapshot")?;
+
+    // Unmount temporary mount
+    let _ = Command::new("umount").arg(&temp_mount).status();
+    let _ = fs::remove_dir(&temp_mount);
+
+    if !snapshot_status.success() {
+        anyhow::bail!("btrfs snapshot command failed");
+    }
+
+    Ok(())
 }
 
 fn run_upgrade() -> Result<()> {
