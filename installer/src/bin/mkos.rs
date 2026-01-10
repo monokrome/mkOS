@@ -133,9 +133,14 @@ fn create_btrfs_snapshot(name: &str) -> Result<()> {
         .output()
         .context("Failed to find root device")?;
 
-    let root_device = String::from_utf8_lossy(&findmnt_output.stdout)
+    let mut root_device = String::from_utf8_lossy(&findmnt_output.stdout)
         .trim()
         .to_string();
+
+    // Strip subvolume notation if present (e.g., "/dev/mapper/cryptroot[/@]" -> "/dev/mapper/cryptroot")
+    if let Some(bracket_pos) = root_device.find('[') {
+        root_device = root_device[..bracket_pos].to_string();
+    }
 
     // Create temporary mount point
     let temp_mount = PathBuf::from("/tmp/mkos-btrfs-root");
