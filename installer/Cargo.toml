@@ -16,6 +16,10 @@ path = "src/bin/install.rs"
 name = "mkos-apply"
 path = "src/bin/apply.rs"
 
+[[bin]]
+name = "mkos"
+path = "src/bin/mkos.rs"
+
 [dependencies]
 # TUI
 ratatui = "0.29"
@@ -56,6 +60,9 @@ uuid = { version = "1", features = ["v4"] }
 
 # Date/time (for snapshot timestamps)
 chrono = "0.4"
+
+# Unix utilities (for root check)
+nix = { version = "0.29", features = ["user"] }
 
 [profile.release]
 lto = true
