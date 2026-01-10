@@ -17,6 +17,7 @@ fn main() -> Result<()> {
         "update" => update(),
         "upgrade" | "up" => upgrade(),
         "snapshot" => snapshot_cmd(&args[2..]),
+        "migrate-swap" => migrate_swap(),
         "help" | "--help" | "-h" => {
             print_usage();
             Ok(())
@@ -38,12 +39,14 @@ Usage:
     mkos upgrade          Update indexes and upgrade packages (with snapshot)
     mkos snapshot list    List all snapshots
     mkos snapshot delete <name>  Delete a snapshot
+    mkos migrate-swap     Migrate swapfile to @swap subvolume
     mkos help             Show this help message
 
 Examples:
     mkos update           # Update package database only
     mkos upgrade          # Update and upgrade all packages (creates snapshot first)
     mkos snapshot list    # List all available snapshots
+    mkos migrate-swap     # Migrate /swapfile to /swap/swapfile in @swap subvolume
 "#
     );
 }
@@ -317,6 +320,221 @@ fn delete_snapshot(name: &str) -> Result<()> {
     println!("Deleting snapshot: {}", name);
     snapshot::delete_snapshot(&snapshot_path)?;
     println!("✓ Snapshot deleted");
+
+    Ok(())
+}
+
+fn migrate_swap() -> Result<()> {
+    use std::fs;
+    use std::path::PathBuf;
+
+    // Check if running as root
+    if !nix::unistd::Uid::effective().is_root() {
+        eprintln!("Error: Migrating swap requires root privileges (use sudo)");
+        std::process::exit(1);
+    }
+
+    println!("=== mkOS Swap Migration ===\n");
+
+    // Check if /swapfile exists (old setup)
+    let old_swapfile = Path::new("/swapfile");
+    if !old_swapfile.exists() {
+        println!("No /swapfile found. System may already be using @swap subvolume.");
+        println!("If you have swap in /swap/swapfile, migration is not needed.\n");
+        return Ok(());
+    }
+
+    println!("Found /swapfile in root subvolume. Migrating to @swap subvolume...\n");
+
+    // Check if filesystem is btrfs
+    if !snapshot::is_btrfs_root() {
+        anyhow::bail!("Root filesystem is not btrfs. This migration is only for btrfs systems.");
+    }
+
+    // Get the root device
+    let findmnt_output = Command::new("findmnt")
+        .args(["-n", "-o", "SOURCE", "/"])
+        .output()
+        .context("Failed to find root device")?;
+
+    let mut root_device = String::from_utf8_lossy(&findmnt_output.stdout)
+        .trim()
+        .to_string();
+
+    // Strip subvolume notation if present
+    if let Some(bracket_pos) = root_device.find('[') {
+        root_device = root_device[..bracket_pos].to_string();
+    }
+
+    // Disable swap if active
+    let swap_active = Command::new("swapon")
+        .args(["--show", "--noheadings"])
+        .output()
+        .ok()
+        .and_then(|o| {
+            let output = String::from_utf8_lossy(&o.stdout);
+            Some(output.contains("/swapfile"))
+        })
+        .unwrap_or(false);
+
+    if swap_active {
+        println!("[1/7] Disabling swap...");
+        Command::new("swapoff")
+            .arg("/swapfile")
+            .status()
+            .context("Failed to disable swap")?;
+        println!("✓ Swap disabled\n");
+    } else {
+        println!("[1/7] Swap already disabled\n");
+    }
+
+    // Mount btrfs root
+    println!("[2/7] Mounting btrfs root...");
+    let temp_mount = PathBuf::from("/tmp/mkos-btrfs-root");
+    fs::create_dir_all(&temp_mount)?;
+
+    let mount_status = Command::new("mount")
+        .args(["-o", "subvolid=5", &root_device, temp_mount.to_str().unwrap()])
+        .status()
+        .context("Failed to mount btrfs root")?;
+
+    if !mount_status.success() {
+        let _ = fs::remove_dir(&temp_mount);
+        anyhow::bail!("Failed to mount btrfs root");
+    }
+    println!("✓ Btrfs root mounted at {}\n", temp_mount.display());
+
+    // Check if @swap subvolume exists
+    let swap_subvol = temp_mount.join("@swap");
+    if !swap_subvol.exists() {
+        println!("[3/7] Creating @swap subvolume...");
+        let create_status = Command::new("btrfs")
+            .args(["subvolume", "create", swap_subvol.to_str().unwrap()])
+            .status()
+            .context("Failed to create @swap subvolume")?;
+
+        if !create_status.success() {
+            let _ = Command::new("umount").arg(&temp_mount).status();
+            let _ = fs::remove_dir(&temp_mount);
+            anyhow::bail!("Failed to create @swap subvolume");
+        }
+        println!("✓ Created @swap subvolume\n");
+    } else {
+        println!("[3/7] @swap subvolume already exists\n");
+    }
+
+    // Create /swap mount point if it doesn't exist
+    println!("[4/7] Creating /swap mount point...");
+    fs::create_dir_all("/swap")?;
+    println!("✓ Created /swap directory\n");
+
+    // Mount @swap subvolume at /swap
+    println!("[5/7] Mounting @swap subvolume...");
+    let swap_mount = Command::new("mount")
+        .args(["-o", "subvol=@swap", &root_device, "/swap"])
+        .status()
+        .context("Failed to mount @swap")?;
+
+    if !swap_mount.success() {
+        let _ = Command::new("umount").arg(&temp_mount).status();
+        let _ = fs::remove_dir(&temp_mount);
+        anyhow::bail!("Failed to mount @swap subvolume");
+    }
+    println!("✓ @swap mounted at /swap\n");
+
+    // Move swapfile
+    println!("[6/7] Moving swapfile...");
+    let new_swapfile = Path::new("/swap/swapfile");
+    fs::rename("/swapfile", new_swapfile)
+        .context("Failed to move swapfile")?;
+    println!("✓ Moved /swapfile to /swap/swapfile\n");
+
+    // Update /etc/fstab
+    println!("[7/7] Updating /etc/fstab...");
+    let fstab_path = Path::new("/etc/fstab");
+    let fstab_content = fs::read_to_string(fstab_path)
+        .context("Failed to read /etc/fstab")?;
+
+    let mut new_fstab = String::new();
+    let mut updated = false;
+    let mut has_swap_mount = false;
+
+    for line in fstab_content.lines() {
+        if line.trim().starts_with('#') || line.trim().is_empty() {
+            new_fstab.push_str(line);
+            new_fstab.push('\n');
+            continue;
+        }
+
+        // Check if this is the old swapfile entry
+        if line.contains("/swapfile") && line.contains("swap") {
+            // Replace /swapfile with /swap/swapfile
+            let new_line = line.replace("/swapfile", "/swap/swapfile");
+            new_fstab.push_str(&new_line);
+            new_fstab.push('\n');
+            updated = true;
+            continue;
+        }
+
+        // Check if @swap mount entry exists
+        if line.contains("@swap") && line.contains("/swap") {
+            has_swap_mount = true;
+        }
+
+        new_fstab.push_str(line);
+        new_fstab.push('\n');
+    }
+
+    // Add @swap mount entry if it doesn't exist
+    if !has_swap_mount {
+        new_fstab.push_str(&format!(
+            "{} /swap btrfs subvol=@swap,defaults 0 0\n",
+            root_device
+        ));
+    }
+
+    if !updated {
+        println!("Warning: Could not find /swapfile entry in fstab. You may need to add:");
+        println!("  /swap/swapfile none swap defaults,pri=10 0 0");
+    }
+
+    fs::write(fstab_path, new_fstab)
+        .context("Failed to write /etc/fstab")?;
+    println!("✓ Updated /etc/fstab\n");
+
+    // Re-enable swap
+    println!("Re-enabling swap...");
+    let swapon_status = Command::new("swapon")
+        .arg("/swap/swapfile")
+        .status()
+        .context("Failed to enable swap")?;
+
+    // Cleanup
+    let _ = Command::new("umount").arg(&temp_mount).status();
+    let _ = fs::remove_dir(&temp_mount);
+
+    if !swapon_status.success() {
+        println!("\nWarning: Failed to enable swap. You may need to run:");
+        println!("  sudo swapon /swap/swapfile");
+        println!("\nOr reboot to apply the changes.");
+    } else {
+        println!("✓ Swap enabled\n");
+    }
+
+    println!("════════════════════════════════════════════════════════════");
+    println!("✓ Migration complete!");
+    println!();
+    println!("Your swapfile is now in the @swap subvolume at /swap/swapfile");
+    println!("This allows snapshots to work without disabling swap.");
+    println!();
+    println!("Changes made:");
+    println!("  • Created @swap btrfs subvolume");
+    println!("  • Moved /swapfile to /swap/swapfile");
+    println!("  • Updated /etc/fstab");
+    println!("  • Mounted @swap at /swap");
+    println!();
+    println!("You can now run 'mkos upgrade' without swap-related issues.");
+    println!("════════════════════════════════════════════════════════════");
 
     Ok(())
 }
