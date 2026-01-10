@@ -131,9 +131,9 @@ fn create_btrfs_snapshot(name: &str) -> Result<()> {
         .args(["--show", "--noheadings"])
         .output()
         .ok()
-        .and_then(|o| {
+        .map(|o| {
             let output = String::from_utf8_lossy(&o.stdout);
-            Some(output.contains("/swapfile"))
+            output.contains("/swapfile")
         })
         .unwrap_or(false);
 
