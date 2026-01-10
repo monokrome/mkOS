@@ -11,7 +11,8 @@ echo "This script will:"
 echo "  1. Build and install mkos tools to /usr/local/bin"
 echo "  2. Install pacman hook for automatic UKI rebuild on kernel upgrades"
 echo "  3. Install UKI rebuild script at /usr/local/bin/mkos-rebuild-uki"
-echo "  4. Optionally rebuild your current UKI"
+echo "  4. Migrate swapfile to @swap subvolume (if needed)"
+echo "  5. Optionally rebuild your current UKI"
 echo ""
 echo "NOTE: mkos-install is NOT installed (it's for fresh installations only)"
 echo ""
@@ -196,7 +197,97 @@ chmod +x /usr/local/bin/mkos-rebuild-uki
 echo "✓ UKI rebuild script installed at /usr/local/bin/mkos-rebuild-uki"
 
 echo ""
-echo "[4/4] Rebuild UKI now?"
+echo "[4/5] Checking swap configuration..."
+
+# Check if we need to migrate swap to @swap subvolume
+if [ -f "/swapfile" ] && [ ! -f "/swap/swapfile" ]; then
+    echo ""
+    echo "Found /swapfile in root subvolume. For optimal snapshot support,"
+    echo "mkOS now uses a dedicated @swap subvolume."
+    echo ""
+    read -p "Migrate swap to @swap subvolume? [Y/n] " -n 1 -r
+    echo
+
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        echo ""
+        echo "=== Migrating Swap to @swap Subvolume ==="
+        echo ""
+
+        # Get root device
+        ROOT_DEVICE=$(findmnt -n -o SOURCE / | sed 's/\[.*$//')
+
+        # Check if swap is active
+        if swapon --show --noheadings | grep -q "/swapfile"; then
+            echo "  Disabling swap..."
+            swapoff /swapfile
+            SWAP_WAS_ACTIVE=1
+        else
+            SWAP_WAS_ACTIVE=0
+        fi
+
+        # Mount btrfs root
+        echo "  Mounting btrfs root..."
+        TEMP_MOUNT="/tmp/mkos-btrfs-root"
+        mkdir -p "$TEMP_MOUNT"
+        mount -o subvolid=5 "$ROOT_DEVICE" "$TEMP_MOUNT"
+
+        # Create @swap subvolume if needed
+        if [ ! -d "$TEMP_MOUNT/@swap" ]; then
+            echo "  Creating @swap subvolume..."
+            btrfs subvolume create "$TEMP_MOUNT/@swap"
+        fi
+
+        # Create /swap mount point
+        mkdir -p /swap
+
+        # Mount @swap
+        echo "  Mounting @swap subvolume..."
+        mount -o subvol=@swap "$ROOT_DEVICE" /swap
+
+        # Move swapfile
+        echo "  Moving swapfile..."
+        mv /swapfile /swap/swapfile
+
+        # Update fstab
+        echo "  Updating /etc/fstab..."
+
+        # Add @swap mount if not present
+        if ! grep -q "@swap" /etc/fstab; then
+            echo "$ROOT_DEVICE /swap btrfs subvol=@swap,defaults 0 0" >> /etc/fstab
+        fi
+
+        # Update swapfile path
+        sed -i 's|/swapfile|/swap/swapfile|g' /etc/fstab
+
+        # Cleanup
+        umount "$TEMP_MOUNT"
+        rmdir "$TEMP_MOUNT"
+
+        # Re-enable swap if it was active
+        if [ "$SWAP_WAS_ACTIVE" -eq 1 ]; then
+            echo "  Re-enabling swap..."
+            swapon /swap/swapfile
+        fi
+
+        echo "✓ Swap migration complete"
+        echo ""
+        echo "Your swapfile is now in the @swap subvolume."
+        echo "This allows snapshots to work without swap-related issues."
+    else
+        echo ""
+        echo "Skipping swap migration. You can migrate later if needed."
+        echo "Note: Snapshots may require temporarily disabling swap."
+    fi
+else
+    if [ -f "/swap/swapfile" ]; then
+        echo "✓ Already using @swap subvolume"
+    else
+        echo "No swapfile detected, skipping migration"
+    fi
+fi
+
+echo ""
+echo "[5/5] Rebuild UKI now?"
 echo ""
 echo "It's recommended to rebuild your UKI now to ensure it's up-to-date"
 echo "with your current kernel."
