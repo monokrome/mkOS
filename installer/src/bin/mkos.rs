@@ -14,6 +14,7 @@ fn main() -> Result<()> {
     }
 
     match args[1].as_str() {
+        "update" => update(),
         "upgrade" | "up" => upgrade(),
         "snapshot" => snapshot_cmd(&args[2..]),
         "help" | "--help" | "-h" => {
@@ -33,16 +34,53 @@ fn print_usage() {
         r#"mkOS - System management tool
 
 Usage:
-    mkos upgrade          Upgrade system packages with automatic snapshot
+    mkos update           Update package indexes
+    mkos upgrade          Update indexes and upgrade packages (with snapshot)
     mkos snapshot list    List all snapshots
     mkos snapshot delete <name>  Delete a snapshot
     mkos help             Show this help message
 
 Examples:
-    mkos upgrade          # Upgrade all packages (creates snapshot first)
+    mkos update           # Update package database only
+    mkos upgrade          # Update and upgrade all packages (creates snapshot first)
     mkos snapshot list    # List all available snapshots
 "#
     );
+}
+
+fn update() -> Result<()> {
+    // Check if running as root
+    if !nix::unistd::Uid::effective().is_root() {
+        eprintln!("Error: mkos update must be run as root (use sudo)");
+        std::process::exit(1);
+    }
+
+    println!("=== mkOS Update Package Indexes ===\n");
+
+    // Detect package manager and run update
+    let (pkg_mgr, args) = if Path::new("/usr/bin/pacman").exists() {
+        ("pacman", vec!["-Sy"])
+    } else if Path::new("/usr/bin/xbps-install").exists() {
+        ("xbps-install", vec!["-S"])
+    } else {
+        eprintln!("Error: Unknown package manager");
+        std::process::exit(1);
+    };
+
+    println!("Running {} {}...\n", pkg_mgr, args.join(" "));
+
+    let status = Command::new(pkg_mgr)
+        .args(&args)
+        .status()
+        .context("Failed to run package manager")?;
+
+    if !status.success() {
+        anyhow::bail!("Package manager failed with exit code: {:?}", status.code());
+    }
+
+    println!("\n✓ Package indexes updated");
+
+    Ok(())
 }
 
 fn upgrade() -> Result<()> {
