@@ -14,8 +14,6 @@ echo "  3. Install UKI rebuild script at /usr/local/bin/mkos-rebuild-uki"
 echo "  4. Migrate swapfile to @swap subvolume (if needed)"
 echo "  5. Optionally rebuild your current UKI"
 echo ""
-echo "NOTE: mkos-install is NOT installed (it's for fresh installations only)"
-echo ""
 
 # Get the actual user (even when running with sudo)
 ACTUAL_USER="${SUDO_USER:-$USER}"
@@ -244,9 +242,34 @@ if [ -f "/swapfile" ] && [ ! -f "/swap/swapfile" ]; then
         echo "  Mounting @swap subvolume..."
         mount -o subvol=@swap "$ROOT_DEVICE" /swap
 
-        # Move swapfile
-        echo "  Moving swapfile..."
-        mv /swapfile /swap/swapfile
+        # Determine which swapfile to use as source
+        if [ -f "/swapfile" ]; then
+            SOURCE_SWAPFILE="/swapfile"
+        elif [ -f "/swap/swapfile" ]; then
+            SOURCE_SWAPFILE="/swap/swapfile"
+        else
+            echo "  Error: No swapfile found"
+            umount "$TEMP_MOUNT"
+            rmdir "$TEMP_MOUNT"
+            exit 1
+        fi
+
+        # Get the size of the swapfile in MB
+        echo "  Determining swapfile size..."
+        SWAP_SIZE_MB=$(stat -c %s "$SOURCE_SWAPFILE")
+        SWAP_SIZE_MB=$((SWAP_SIZE_MB / 1024 / 1024))
+
+        # Remove old swapfile(s)
+        echo "  Removing old swapfile..."
+        rm -f /swapfile /swap/swapfile
+
+        # Create new swapfile with COW disabled (using dd for btrfs compatibility)
+        echo "  Creating new swapfile (${SWAP_SIZE_MB}MB)..."
+        touch /swap/swapfile
+        chattr +C /swap/swapfile
+        dd if=/dev/zero of=/swap/swapfile bs=1M count="$SWAP_SIZE_MB" status=progress
+        chmod 600 /swap/swapfile
+        mkswap /swap/swapfile
 
         # Update fstab
         echo "  Updating /etc/fstab..."
