@@ -55,6 +55,7 @@ jobs:
         run: |
           mv installer/target/${{ matrix.target }}/release/mkos-install mkos-install-${{ matrix.suffix }}
           mv installer/target/${{ matrix.target }}/release/mkos-apply mkos-apply-${{ matrix.suffix }}
+          mv installer/target/${{ matrix.target }}/release/mkos mkos-${{ matrix.suffix }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -63,6 +64,7 @@ jobs:
           path: |
             mkos-install-${{ matrix.suffix }}
             mkos-apply-${{ matrix.suffix }}
+            mkos-${{ matrix.suffix }}
 
   release:
     needs: build
@@ -89,5 +91,7 @@ jobs:
           files: |
             artifacts/mkos-install-*
             artifacts/mkos-apply-*
+            artifacts/mkos-*
             scripts/install.sh
+            scripts/update-existing-system.sh
           generate_release_notes: true
