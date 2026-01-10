@@ -5,6 +5,7 @@ mod void;
 pub use packages::*;
 
 use crate::init::InitSystem;
+use crate::pkgmgr::PackageManager;
 use anyhow::Result;
 use std::path::Path;
 
@@ -42,6 +43,9 @@ pub trait Distro: Send + Sync {
 
     /// Get the init system for this distro
     fn init_system(&self) -> &dyn InitSystem;
+
+    /// Get the package manager for this distro
+    fn package_manager(&self) -> &dyn PackageManager;
 
     /// Map generic service name to distro-specific name
     fn map_service(&self, generic: &str) -> String;

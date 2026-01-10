@@ -283,6 +283,12 @@ impl Installer {
         let luks_uuid = get_uuid(&parts.luks)?;
         chroot::generate_crypttab(&self.target, &luks_uuid)?;
 
+        // Install package manager hooks for automatic UKI rebuild on kernel upgrade
+        println!("Installing package manager hooks...");
+        distro
+            .package_manager()
+            .install_kernel_hooks(&self.target)?;
+
         // Set up chroot environment for subsequent steps
         chroot::setup_chroot(&self.target)?;
 

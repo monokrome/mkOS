@@ -1,6 +1,7 @@
 use super::Distro;
 use crate::cmd;
 use crate::init::{InitSystem, S6};
+use crate::pkgmgr::{PackageManager, Pacman};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
@@ -10,6 +11,7 @@ pub struct Artix {
     package_map: HashMap<String, String>,
     service_map: HashMap<String, String>,
     init_system: S6,
+    pkg_manager: Pacman,
 }
 
 impl Default for Artix {
@@ -116,6 +118,7 @@ impl Default for Artix {
             package_map,
             service_map,
             init_system: S6::artix(),
+            pkg_manager: Pacman::new(),
         }
     }
 }
@@ -323,5 +326,9 @@ impl Distro for Artix {
     fn generate_fstab(&self, root: &Path) -> Result<String> {
         cmd::run_output("fstabgen", ["-U", &root.to_string_lossy()])
             .context("Failed to generate fstab with fstabgen")
+    }
+
+    fn package_manager(&self) -> &dyn PackageManager {
+        &self.pkg_manager
     }
 }

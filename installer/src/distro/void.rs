@@ -1,6 +1,7 @@
 use super::Distro;
 use crate::cmd;
 use crate::init::{InitSystem, S6};
+use crate::pkgmgr::{PackageManager, Xbps};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
@@ -10,6 +11,7 @@ pub struct Void {
     repo: String,
     package_map: HashMap<String, String>,
     init_system: S6,
+    pkg_manager: Xbps,
 }
 
 impl Default for Void {
@@ -48,8 +50,10 @@ impl Default for Void {
         package_map.insert("font-noto".into(), "noto-fonts-ttf".into());
         package_map.insert("font-noto-emoji".into(), "noto-fonts-emoji".into());
 
+        let repo = "https://repo-default.voidlinux.org/current".to_string();
         Self {
-            repo: "https://repo-default.voidlinux.org/current".into(),
+            pkg_manager: Xbps::new(&repo),
+            repo,
             package_map,
             init_system: S6::void(),
         }
@@ -228,5 +232,9 @@ impl Distro for Void {
         }
 
         String::from_utf8(output.stdout).context("Invalid UTF-8 in fstab output")
+    }
+
+    fn package_manager(&self) -> &dyn PackageManager {
+        &self.pkg_manager
     }
 }
