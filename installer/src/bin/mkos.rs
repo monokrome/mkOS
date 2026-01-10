@@ -142,35 +142,32 @@ fn create_btrfs_snapshot(name: &str) -> Result<()> {
         root_device = root_device[..bracket_pos].to_string();
     }
 
-    // Create temporary mount point
+    // Create temporary mount point for btrfs root
     let temp_mount = PathBuf::from("/tmp/mkos-btrfs-root");
     fs::create_dir_all(&temp_mount)?;
 
-    // Mount btrfs root (subvolid=5)
+    // Mount btrfs root (subvolid=5) to access all subvolumes at the same level
     let mount_status = Command::new("mount")
         .args(["-o", "subvolid=5", &root_device, temp_mount.to_str().unwrap()])
         .status()
         .context("Failed to mount btrfs root")?;
 
     if !mount_status.success() {
+        let _ = fs::remove_dir(&temp_mount);
         anyhow::bail!("Failed to mount btrfs root");
     }
 
-    // Ensure .snapshots directory exists in btrfs root
-    let snapshots_dir = temp_mount.join(".snapshots");
-    fs::create_dir_all(&snapshots_dir)?;
-
-    // Snapshot the currently mounted / (@ subvolume) to the .snapshots directory in btrfs root
-    // We snapshot FROM "/" TO "/tmp/mkos-btrfs-root/.snapshots/name"
-    let snapshot_path = snapshots_dir.join(name);
+    // Now snapshot @ to @snapshots/name at the btrfs root level
+    let source = temp_mount.join("@");
+    let dest = temp_mount.join("@snapshots").join(name);
 
     let snapshot_status = Command::new("btrfs")
         .args([
             "subvolume",
             "snapshot",
             "-r",
-            "/",
-            snapshot_path.to_str().unwrap(),
+            source.to_str().unwrap(),
+            dest.to_str().unwrap(),
         ])
         .status()
         .context("Failed to create snapshot")?;
