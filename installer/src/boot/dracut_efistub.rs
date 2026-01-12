@@ -53,13 +53,27 @@ impl BootSystem for DracutEfistub {
 
     fn generate_initramfs_config(&self, target: &Path, _config: &BootConfig) -> Result<()> {
         let dracut_config = r#"# mkOS dracut configuration
-hostonly="no"
+# Note: hostonly is controlled by command line in hook script
 
-# Required modules for LUKS2 + btrfs
-add_dracutmodules+=" crypt dm rootfs-block btrfs "
+# Force modules that return 255 when not on running system
+# mkOS always uses these, even if live USB doesn't have them:
+#   - dm: device mapper (check() always returns 255)
+#   - crypt: LUKS encryption (returns 255 if no crypto_LUKS detected)
+#   - btrfs: btrfs filesystem (returns 255 if no btrfs detected)
+force_add_dracutmodules+=" dm crypt btrfs "
+
+# Additional required modules
+add_dracutmodules+=" rootfs-block "
+
+# CPU microcode - critical for stability on some hardware
+# Install intel-ucode or amd-ucode package
+early_microcode=yes
+
+# Critical drivers - always include for LUKS support
+add_drivers+=" dm_mod dm_crypt "
 
 # Drivers for VMs and common hardware
-add_drivers+=" virtio virtio_blk virtio_pci virtio_scsi nvme ahci sd_mod dm_crypt "
+add_drivers+=" virtio virtio_blk virtio_pci virtio_scsi nvme ahci sd_mod "
 
 # Filesystems
 filesystems+=" btrfs ext4 vfat "
@@ -83,20 +97,54 @@ install_items+=" /etc/crypttab "
         let target_str = target.to_string_lossy().to_string();
 
         println!("  Generating initramfs for kernel {}...", kver);
+        // Use --hostonly since live USB runs on target hardware
+        // Force-add modules that return 255 when not detected on running system:
+        //   - dm: device mapper (check() always returns 255)
+        //   - crypt: LUKS encryption (returns 255 if no crypto_LUKS on live USB)
+        //   - btrfs: btrfs filesystem (returns 255 if no btrfs on live USB)
+        // These are always needed for mkOS but may not be on the live USB
         cmd::run(
             "chroot",
             [
                 &target_str,
                 "dracut",
                 "--force",
-                "--no-hostonly",
+                "--hostonly",
                 "--kver",
                 &kver,
-                "--add",
-                "crypt dm rootfs-block btrfs",
+                "--force-add",
+                "dm",
+                "--force-add",
+                "crypt",
+                "--force-add",
+                "btrfs",
+                "--add-drivers",
+                "dm_mod",
+                "--add-drivers",
+                "dm_crypt",
                 "/boot/initramfs.img",
             ],
-        )
+        )?;
+
+        // Verify critical modules are present
+        println!("  Verifying dm modules in initramfs...");
+        let lsinitrd_output = std::process::Command::new("lsinitrd")
+            .arg(target.join("boot/initramfs.img"))
+            .output()
+            .context("Failed to run lsinitrd")?;
+
+        let output_str = String::from_utf8_lossy(&lsinitrd_output.stdout);
+
+        if !output_str.contains("dm_mod.ko") {
+            anyhow::bail!("dm_mod module not found in initramfs! Boot will fail.");
+        }
+        if !output_str.contains("dm_crypt.ko") {
+            anyhow::bail!("dm_crypt module not found in initramfs! Boot will fail.");
+        }
+
+        println!("  ✓ dm_mod and dm_crypt verified in initramfs");
+
+        Ok(())
     }
 
     fn build_boot_image(&self, target: &Path, config: &BootConfig) -> Result<BootEntry> {
@@ -105,8 +153,8 @@ install_items+=" /etc/crypttab "
 
         println!("Building UKI for kernel {}...", kver);
 
-        // Create the EFI/Linux directory
-        let efi_linux_dir = target.join("boot/EFI/Linux");
+        // Create the Linux directory
+        let efi_linux_dir = target.join("boot");
         fs::create_dir_all(&efi_linux_dir)?;
 
         // Build cmdline
@@ -194,11 +242,11 @@ install_items+=" /etc/crypttab "
         // Clean up temp files
         let _ = fs::remove_file(&cmdline_path);
 
-        println!("✓ UKI built: /boot/EFI/Linux/{}", uki_name);
+        println!("✓ UKI built: /boot/{}", uki_name);
 
         Ok(BootEntry {
             label: "mkOS".into(),
-            loader_path: format!("/EFI/Linux/{}", uki_name),
+            loader_path: format!("/{}", uki_name),
         })
     }
 
@@ -243,7 +291,8 @@ install_items+=" /etc/crypttab "
         let part_str = efi_part_num.to_string();
 
         println!(
-            "Creating EFI boot entry for {} partition {}...",
+            "Creating EFI boot entry '{}' for {} partition {}...",
+            entry.label,
             device.display(),
             efi_part_num
         );
@@ -264,7 +313,7 @@ install_items+=" /etc/crypttab "
             ],
         )?;
 
-        println!("✓ EFI boot entry created successfully");
+        println!("✓ EFI boot entry '{}' created successfully", entry.label);
 
         // Verify the entry was created
         if let Ok(output) = std::process::Command::new("efibootmgr").output() {
@@ -274,7 +323,7 @@ install_items+=" /etc/crypttab "
                     "Boot entry was not saved to NVRAM. Your UEFI firmware may have issues."
                 );
             }
-            println!("✓ Boot entry verified in NVRAM");
+            println!("✓ Boot entry '{}' verified in NVRAM", entry.label);
         }
 
         Ok(())
@@ -302,7 +351,7 @@ pub fn generate_uki(target: &Path, config: &BootConfig) -> Result<String> {
 pub fn create_startup_script(target: &Path, uki_name: &str) -> Result<()> {
     let entry = BootEntry {
         label: "mkOS".into(),
-        loader_path: format!("/EFI/Linux/{}", uki_name),
+        loader_path: format!("/{}", uki_name),
     };
     DracutEfistub::new().create_fallback_scripts(target, &entry)
 }
@@ -310,7 +359,7 @@ pub fn create_startup_script(target: &Path, uki_name: &str) -> Result<()> {
 pub fn create_boot_entry(device: &Path, efi_part_num: u32, uki_name: &str) -> Result<()> {
     let entry = BootEntry {
         label: "mkOS".into(),
-        loader_path: format!("/EFI/Linux/{}", uki_name),
+        loader_path: format!("/{}", uki_name),
     };
     DracutEfistub::new().create_boot_entry(device, efi_part_num, &entry)
 }

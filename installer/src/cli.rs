@@ -269,6 +269,9 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
     // Firewall config from manifest (no interactive prompts yet)
     let firewall = manifest.firewall.clone();
 
+    // Microcode - detect CPU and prompt user
+    let microcode = prompt_microcode()?;
+
     Ok(InstallConfig {
         device,
         passphrase,
@@ -285,6 +288,8 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
         audio,
         network,
         firewall,
+        secureboot: crate::install::SecureBootConfig::default(),
+        microcode,
     })
 }
 
@@ -611,5 +616,21 @@ fn prompt_password_confirm(name: &str) -> Result<String> {
     match prompt::prompt_field(&spec)? {
         FieldValue::Text(s) => Ok(s),
         _ => bail!("Password is required"),
+    }
+}
+
+fn prompt_microcode() -> Result<bool> {
+    use crate::util::{detect_cpu_vendor, CpuVendor};
+
+    let vendor = detect_cpu_vendor();
+
+    match vendor {
+        CpuVendor::Intel | CpuVendor::Amd => {
+            prompt_yes_no(
+                &format!("Install {} microcode updates (CPU security fixes, proprietary)", vendor.name()),
+                false
+            )
+        }
+        CpuVendor::Unknown => Ok(false),
     }
 }

@@ -47,6 +47,15 @@ pub struct SwapConfig {
     pub swappiness: u8,
 }
 
+/// Secure Boot configuration
+#[derive(Debug, Clone)]
+pub struct SecureBootConfig {
+    /// Enable secure boot (generate and sign with keys)
+    pub enabled: bool,
+    /// Path to existing secure boot keys directory (if None, will generate new keys)
+    pub keys_path: Option<PathBuf>,
+}
+
 impl Default for SwapConfig {
     fn default() -> Self {
         Self {
@@ -55,6 +64,15 @@ impl Default for SwapConfig {
             swapfile_enabled: false,
             swapfile_size_gb: None,
             swappiness: 20,
+        }
+    }
+}
+
+impl Default for SecureBootConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            keys_path: None,
         }
     }
 }
@@ -76,6 +94,8 @@ pub struct InstallConfig {
     pub audio: AudioConfig,
     pub network: NetworkConfig,
     pub firewall: FirewallConfig,
+    pub secureboot: SecureBootConfig,
+    pub microcode: bool,
 }
 
 impl Default for InstallConfig {
@@ -96,6 +116,8 @@ impl Default for InstallConfig {
             audio: AudioConfig::default(),
             network: NetworkConfig::default(),
             firewall: FirewallConfig::default(),
+            secureboot: SecureBootConfig::default(),
+            microcode: false,
         }
     }
 }
@@ -262,6 +284,16 @@ impl Installer {
             crate::firewall::setup_firewall(&self.target, &self.config.firewall, distro.as_ref())?;
         }
 
+        // Install CPU microcode if enabled
+        if self.config.microcode {
+            use crate::util::detect_cpu_vendor;
+            let vendor = detect_cpu_vendor();
+            if let Some(pkg) = vendor.microcode_package() {
+                println!("Installing {} microcode updates...", vendor.name());
+                distro.install_packages(&self.target, &[pkg])?;
+            }
+        }
+
         // Install extra packages (e.g., GPU drivers)
         if !self.config.extra_packages.is_empty() {
             println!("Installing additional packages...");
@@ -342,9 +374,21 @@ impl Installer {
         uki::generate_dracut_config(&self.target, &boot_config)?;
         let uki_name = uki::generate_uki(&self.target, &boot_config)?;
 
-        // Create fallback startup script and EFI boot entry
+        // Handle secure boot if enabled
+        if self.config.secureboot.enabled {
+            self.setup_secureboot(&uki_name)?;
+        }
+
+        // Create fallback startup script
         uki::create_startup_script(&self.target, &uki_name)?;
+
+        // Create main boot entry
+        println!("  Creating main boot entry...");
         uki::create_boot_entry(&self.config.device, 1, &uki_name)?;
+
+        // Create fallback boot entry
+        println!("  Creating fallback boot entry...");
+        self.create_fallback_boot_entry(&uki_name)?;
 
         // Tear down chroot environment
         chroot::teardown_chroot(&self.target)?;
@@ -357,6 +401,103 @@ impl Installer {
 
         use crate::crypt::snapshot;
         snapshot::create_install_snapshot(&self.target)?;
+
+        Ok(())
+    }
+
+    fn create_fallback_boot_entry(&self, uki_name: &str) -> Result<()> {
+        use crate::cmd;
+
+        // Find latest snapshot
+        let snapshots_dir = self.target.join(".snapshots");
+        if !snapshots_dir.exists() {
+            println!("    No snapshots yet, fallback entry will be same as main");
+        }
+
+        // Create fallback entry with same UKI
+        // Note: UKI embeds cmdline, so fallback currently boots to same subvolume as main
+        // This is a known limitation - future improvement needed for true snapshot boot
+        let loader_path = format!("\\EFI\\Linux\\{}", uki_name);
+        let device_str = self.config.device.to_string_lossy().to_string();
+
+        cmd::run(
+            "efibootmgr",
+            [
+                "--create",
+                "--disk",
+                &device_str,
+                "--part",
+                "1",
+                "--label",
+                "mkOS (fallback)",
+                "--loader",
+                &loader_path,
+            ],
+        )?;
+
+        println!("    ✓ Fallback boot entry created");
+
+        Ok(())
+    }
+
+    fn setup_secureboot(&self, uki_name: &str) -> Result<()> {
+        use crate::uki::{generate_keys, sign_efi_binary, enroll_keys, SecureBootKeys, KeyPair};
+
+        println!("  Setting up Secure Boot...");
+
+        let keys_dir = if let Some(ref keys_path) = self.config.secureboot.keys_path {
+            // Use existing keys
+            println!("    Using existing keys from: {}", keys_path.display());
+            keys_path.clone()
+        } else {
+            // Generate new keys
+            println!("    Generating new Secure Boot keys...");
+            let keys_dir = self.target.join("root/.secureboot-keys");
+            let _keys = generate_keys(&keys_dir)?;
+            println!("    ✓ Keys generated in: {}", keys_dir.display());
+            println!("    IMPORTANT: Back up these keys! They are stored in /root/.secureboot-keys");
+            keys_dir
+        };
+
+        // Load keys
+        let keys = SecureBootKeys {
+            pk: KeyPair {
+                key: keys_dir.join("PK.key").to_string_lossy().into(),
+                cert: keys_dir.join("PK.crt").to_string_lossy().into(),
+            },
+            kek: KeyPair {
+                key: keys_dir.join("KEK.key").to_string_lossy().into(),
+                cert: keys_dir.join("KEK.crt").to_string_lossy().into(),
+            },
+            db: KeyPair {
+                key: keys_dir.join("db.key").to_string_lossy().into(),
+                cert: keys_dir.join("db.crt").to_string_lossy().into(),
+            },
+        };
+
+        // Sign the UKI
+        let uki_path = self.target.join("boot").join(uki_name);
+        println!("    Signing UKI: {}", uki_name);
+        sign_efi_binary(&uki_path, &keys)?;
+        println!("    ✓ UKI signed");
+
+        // Copy enrollment keys to EFI partition
+        println!("    Copying enrollment keys to EFI partition...");
+        let efi_mount = self.target.join("boot");
+        enroll_keys(&efi_mount, &keys_dir)?;
+        println!("    ✓ Enrollment keys copied to /boot/keys/");
+
+        println!("  ✓ Secure Boot configured");
+        println!();
+        println!("  ==> Next Steps for Secure Boot:");
+        println!("      1. Reboot into UEFI/BIOS setup");
+        println!("      2. Enable Secure Boot and enter Setup Mode");
+        println!("      3. Enroll keys from /boot/keys/ in this order:");
+        println!("         - db.auth (Signature Database)");
+        println!("         - KEK.auth (Key Exchange Key)");
+        println!("         - PK.auth (Platform Key) - MUST BE LAST!");
+        println!("      4. Save and exit UEFI setup");
+        println!();
 
         Ok(())
     }

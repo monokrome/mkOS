@@ -1,7 +1,7 @@
 use crate::cmd;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct SecureBootKeys {
@@ -137,4 +137,111 @@ pub fn enroll_keys(efi_mount: &Path, keys_dir: &Path) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Trait for Secure Boot signing tools
+pub trait SecureBootTool {
+    /// Check if this tool is available on the system
+    fn is_available(&self) -> bool;
+
+    /// Check if keys are set up for this tool
+    fn has_keys(&self) -> bool;
+
+    /// Sign an EFI binary
+    fn sign_binary(&self, binary: &Path) -> Result<()>;
+
+    /// Get the name of this tool
+    fn name(&self) -> &'static str;
+}
+
+/// sbctl-based Secure Boot (modern, simple)
+pub struct SbctlTool;
+
+impl SecureBootTool for SbctlTool {
+    fn is_available(&self) -> bool {
+        which::which("sbctl").is_ok()
+    }
+
+    fn has_keys(&self) -> bool {
+        Path::new("/usr/share/secureboot").is_dir()
+    }
+
+    fn sign_binary(&self, binary: &Path) -> Result<()> {
+        let binary_str = binary.to_string_lossy();
+        cmd::run("sbctl", ["sign", "--save", &binary_str])
+            .context("Failed to sign binary with sbctl")
+    }
+
+    fn name(&self) -> &'static str {
+        "sbctl"
+    }
+}
+
+/// Manual signing with sbsign/efitools (traditional approach)
+pub struct ManualTool {
+    keys_dir: PathBuf,
+}
+
+impl ManualTool {
+    pub fn new(keys_dir: PathBuf) -> Self {
+        Self { keys_dir }
+    }
+}
+
+impl SecureBootTool for ManualTool {
+    fn is_available(&self) -> bool {
+        which::which("sbsign").is_ok()
+    }
+
+    fn has_keys(&self) -> bool {
+        let key_path = self.keys_dir.join("db.key");
+        let cert_path = self.keys_dir.join("db.crt");
+        key_path.exists() && cert_path.exists()
+    }
+
+    fn sign_binary(&self, binary: &Path) -> Result<()> {
+        let binary_str = binary.to_string_lossy();
+        let key_path = self.keys_dir.join("db.key");
+        let cert_path = self.keys_dir.join("db.crt");
+
+        if !key_path.exists() || !cert_path.exists() {
+            bail!("Secure Boot keys not found in {}", self.keys_dir.display());
+        }
+
+        let key_str = key_path.to_string_lossy();
+        let cert_str = cert_path.to_string_lossy();
+
+        cmd::run(
+            "sbsign",
+            [
+                "--key",
+                &key_str,
+                "--cert",
+                &cert_str,
+                "--output",
+                &binary_str,
+                &binary_str,
+            ],
+        )
+        .context("Failed to sign binary with sbsign")
+    }
+
+    fn name(&self) -> &'static str {
+        "sbsign"
+    }
+}
+
+/// Detect and return the available Secure Boot tool
+pub fn detect_tool() -> Option<Box<dyn SecureBootTool>> {
+    let sbctl = SbctlTool;
+    if sbctl.is_available() && sbctl.has_keys() {
+        return Some(Box::new(sbctl));
+    }
+
+    let manual = ManualTool::new(PathBuf::from("/root/.secureboot-keys"));
+    if manual.is_available() && manual.has_keys() {
+        return Some(Box::new(manual));
+    }
+
+    None
 }

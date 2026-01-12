@@ -20,3 +20,4 @@ pub mod swap;
 pub mod tui;
 pub mod uki;
 pub mod user_services;
+pub mod util;
