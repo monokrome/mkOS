@@ -15,7 +15,12 @@ pub fn create_partitions(device: &Path, layout: &PartitionLayout) -> Result<Crea
 
     // Use sfdisk for scriptable partitioning (available on base ISO, unlike parted)
     // Format: start, size, type, bootable
-    let script = format!("label: gpt\n,{}M,U,*\n,,L\n", layout.efi_size_mb);
+    // EFI System Partition: C12A7328-F81F-11D2-BA4B-00A0C93EC93B
+    // Linux filesystem: 0FC63DAF-8483-4772-8E79-3D69D8477DE4
+    let script = format!(
+        "label: gpt\n,{}M,C12A7328-F81F-11D2-BA4B-00A0C93EC93B,*\n,,0FC63DAF-8483-4772-8E79-3D69D8477DE4\n",
+        layout.efi_size_mb
+    );
 
     cmd::run_with_stdin("sfdisk", [&*device_str], script.as_bytes())?;
 

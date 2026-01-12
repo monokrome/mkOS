@@ -155,6 +155,8 @@ async fn run_app(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> 
                         audio: Default::default(),
                         network: Default::default(),
                         firewall: Default::default(),
+                        secureboot: Default::default(),
+                        microcode: false,
                     };
 
                     // Spawn install thread
