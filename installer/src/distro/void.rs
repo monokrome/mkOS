@@ -237,4 +237,45 @@ impl Distro for Void {
     fn package_manager(&self) -> &dyn PackageManager {
         &self.pkg_manager
     }
+
+    fn install_kernel_hook(&self, target: &Path) -> Result<()> {
+        use std::fs;
+
+        // Void uses xbps triggers - create a kernel install hook
+        // The trigger runs when linux package is installed/updated
+        let trigger_dir = target.join("etc/kernel.d/post-install");
+        fs::create_dir_all(&trigger_dir)?;
+
+        let trigger_content = r#"#!/bin/sh
+# mkOS kernel hook for Void Linux
+# Called by xbps when kernel is installed/updated
+
+KERNEL_VERSION="$1"
+
+if [ -z "$KERNEL_VERSION" ]; then
+    echo "ERROR: Kernel version not provided"
+    exit 1
+fi
+
+# Run the UKI rebuild script
+exec /usr/local/bin/mkos-rebuild-uki
+"#;
+
+        fs::write(trigger_dir.join("50-mkos-uki"), trigger_content)?;
+
+        // Make executable
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(trigger_dir.join("50-mkos-uki"))?.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(trigger_dir.join("50-mkos-uki"), perms)?;
+        }
+
+        // Install the rebuild script (same as Artix)
+        crate::hooks::install_uki_rebuild_script(target)?;
+
+        println!("✓ Installed kernel hook for Void Linux");
+        Ok(())
+    }
 }

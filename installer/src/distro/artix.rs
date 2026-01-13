@@ -331,4 +331,11 @@ impl Distro for Artix {
     fn package_manager(&self) -> &dyn PackageManager {
         &self.pkg_manager
     }
+
+    fn install_kernel_hook(&self, target: &Path) -> Result<()> {
+        // Install pacman hook and rebuild script
+        crate::hooks::install_pacman_hooks(target)?;
+        crate::hooks::install_uki_rebuild_script(target)?;
+        Ok(())
+    }
 }

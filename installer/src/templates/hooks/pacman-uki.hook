@@ -1,0 +1,13 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = linux
+Target = linux-lts
+Target = linux-hardened
+Target = linux-zen
+
+[Action]
+Description = Rebuilding Unified Kernel Image...
+When = PostTransaction
+Exec = /usr/local/bin/mkos-rebuild-uki

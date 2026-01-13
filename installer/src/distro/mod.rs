@@ -58,6 +58,10 @@ pub trait Distro: Send + Sync {
 
     /// Generate fstab content for the target root
     fn generate_fstab(&self, root: &Path) -> Result<String>;
+
+    /// Install kernel rebuild hook for this distro
+    /// This hook should rebuild the boot image (UKI or initramfs) when the kernel is upgraded
+    fn install_kernel_hook(&self, target: &Path) -> Result<()>;
 }
 
 /// Available distro backends
