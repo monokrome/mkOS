@@ -1,6 +1,12 @@
+mod openrc;
+mod runit;
 mod s6;
+mod sysvinit;
 
+pub use openrc::OpenRC;
+pub use runit::Runit;
 pub use s6::S6;
+pub use sysvinit::SysVinit;
 
 use anyhow::Result;
 use std::path::Path;
