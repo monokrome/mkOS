@@ -7,7 +7,6 @@ use std::path::Path;
 pub struct OpenRC {
     service_dir: &'static str,
     runlevel_dir: &'static str,
-    user_service_dir: &'static str,
 }
 
 impl OpenRC {
@@ -16,7 +15,6 @@ impl OpenRC {
         Self {
             service_dir: "etc/init.d",
             runlevel_dir: "etc/runlevels/default",
-            user_service_dir: ".config/openrc/sv",
         }
     }
 
@@ -25,7 +23,6 @@ impl OpenRC {
         Self {
             service_dir: "etc/init.d",
             runlevel_dir: "etc/runlevels/default",
-            user_service_dir: ".config/openrc/sv",
         }
     }
 
@@ -34,7 +31,6 @@ impl OpenRC {
         Self {
             service_dir: "etc/init.d",
             runlevel_dir: "etc/runlevels/default",
-            user_service_dir: ".config/openrc/sv",
         }
     }
 

@@ -183,11 +183,8 @@ impl Distro for Alpine {
         let dm_packages: Vec<&str> = match dm {
             "greetd" => {
                 let mut pkgs = vec!["greetd"];
-                if let Some(g) = greeter {
-                    match g {
-                        "tuigreet" => pkgs.push("greetd-tuigreet"),
-                        _ => {}
-                    }
+                if let Some("tuigreet") = greeter {
+                    pkgs.push("greetd-tuigreet");
                 }
                 pkgs
             }

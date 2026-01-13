@@ -48,7 +48,7 @@ pub struct SwapConfig {
 }
 
 /// Secure Boot configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SecureBootConfig {
     /// Enable secure boot (generate and sign with keys)
     pub enabled: bool,
@@ -64,15 +64,6 @@ impl Default for SwapConfig {
             swapfile_enabled: false,
             swapfile_size_gb: None,
             swappiness: 20,
-        }
-    }
-}
-
-impl Default for SecureBootConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            keys_path: None,
         }
     }
 }

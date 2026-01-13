@@ -340,7 +340,6 @@ fn is_stage3_extracted(root: &Path) -> Result<bool> {
 }
 
 fn download_and_extract_stage3(root: &Path) -> Result<()> {
-    use std::io::{self, Write};
     use std::process::Command;
 
     // Detect architecture
@@ -381,7 +380,7 @@ fn download_and_extract_stage3(root: &Path) -> Result<()> {
         .trim();
 
     let stage3_url = format!("{}/{}", autobuilds, stage3_path);
-    let filename = stage3_path.split('/').last().unwrap();
+    let filename = stage3_path.split('/').next_back().unwrap();
 
     println!("Downloading: {}", filename);
     println!("This may take several minutes...\n");

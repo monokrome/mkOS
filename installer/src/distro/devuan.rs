@@ -203,9 +203,8 @@ iface eth0 inet dhcp
         let mut packages = vec!["xdg-desktop-portal"];
 
         for backend in backends {
-            match *backend {
-                "gtk" => packages.push("xdg-desktop-portal-gtk"),
-                _ => {}
+            if *backend == "gtk" {
+                packages.push("xdg-desktop-portal-gtk");
             }
         }
 

@@ -7,7 +7,6 @@ use std::path::Path;
 pub struct SysVinit {
     service_dir: &'static str,
     runlevel_dirs: &'static [&'static str],
-    user_service_dir: &'static str,
 }
 
 impl SysVinit {
@@ -16,7 +15,6 @@ impl SysVinit {
         Self {
             service_dir: "etc/init.d",
             runlevel_dirs: &["etc/rc2.d", "etc/rc3.d", "etc/rc4.d", "etc/rc5.d"],
-            user_service_dir: ".config/init/sv",
         }
     }
 
@@ -25,7 +23,6 @@ impl SysVinit {
         Self {
             service_dir: "etc/init.d",
             runlevel_dirs: &["etc/rc2.d", "etc/rc3.d", "etc/rc4.d", "etc/rc5.d"],
-            user_service_dir: ".config/init/sv",
         }
     }
 
@@ -34,7 +31,6 @@ impl SysVinit {
         Self {
             service_dir: "etc/rc.d",
             runlevel_dirs: &["etc/rc.d"], // Slackware uses BSD-style rc.d
-            user_service_dir: ".config/init/sv",
         }
     }
 

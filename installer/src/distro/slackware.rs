@@ -6,31 +6,21 @@ use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
 
-/// Package manager variant for Slackware
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum SlackwarePkgManager {
-    /// Official slackpkg (no dependency resolution)
-    Slackpkg,
-    /// slapt-get (APT-like with dependency resolution)
-    SlaptGet,
-}
-
 pub struct Slackware {
     repo: String,
     package_map: HashMap<String, String>,
     init_system: SysVinit,
-    pkg_manager: SlackwarePkgManager,
 }
 
 impl Default for Slackware {
     fn default() -> Self {
-        Self::with_pkg_manager(SlackwarePkgManager::SlaptGet)
+        Self::new()
     }
 }
 
 impl Slackware {
-    /// Create Slackware configuration with specific package manager
-    pub fn with_pkg_manager(pkg_manager: SlackwarePkgManager) -> Self {
+    /// Create Slackware configuration (uses slapt-get package manager)
+    pub fn new() -> Self {
         let mut package_map = HashMap::new();
 
         // Map generic names to Slackware package names
@@ -110,30 +100,7 @@ impl Slackware {
             repo: "https://mirrors.slackware.com/slackware/slackware64-current".into(),
             package_map,
             init_system: SysVinit::slackware(),
-            pkg_manager,
         }
-    }
-
-    /// Install packages using slackpkg
-    fn slackpkg_install(&self, root: &Path, packages: &[&str]) -> Result<()> {
-        let root_str = root.to_string_lossy();
-
-        // slackpkg doesn't have a built-in chroot mode, so we use installpkg with ROOT
-        for pkg in packages {
-            cmd::run(
-                "ROOT",
-                [
-                    &root_str,
-                    "slackpkg",
-                    "install",
-                    "-default_answer=y",
-                    "-batch=on",
-                    pkg,
-                ],
-            )?;
-        }
-
-        Ok(())
     }
 
     /// Install packages using slapt-get
@@ -154,10 +121,7 @@ impl Distro for Slackware {
     }
 
     fn pkg_manager(&self) -> &str {
-        match self.pkg_manager {
-            SlackwarePkgManager::Slackpkg => "slackpkg",
-            SlackwarePkgManager::SlaptGet => "slapt-get",
-        }
+        "slapt-get"
     }
 
     fn repo_url(&self) -> &str {
@@ -197,26 +161,12 @@ impl Distro for Slackware {
 
         let pkg_refs: Vec<&str> = mapped.iter().map(|s| s.as_str()).collect();
 
-        match self.pkg_manager {
-            SlackwarePkgManager::Slackpkg => self.slackpkg_install(root, &pkg_refs),
-            SlackwarePkgManager::SlaptGet => self.slaptget_install(root, &pkg_refs),
-        }
+        self.slaptget_install(root, &pkg_refs)
     }
 
     fn update_system(&self) -> Result<()> {
-        match self.pkg_manager {
-            SlackwarePkgManager::Slackpkg => {
-                cmd::run("slackpkg", ["update"])?;
-                cmd::run(
-                    "slackpkg",
-                    ["upgrade-all", "-default_answer=y", "-batch=on"],
-                )
-            }
-            SlackwarePkgManager::SlaptGet => {
-                cmd::run("slapt-get", ["--update"])?;
-                cmd::run("slapt-get", ["--upgrade", "--yes"])
-            }
-        }
+        cmd::run("slapt-get", ["--update"])?;
+        cmd::run("slapt-get", ["--upgrade", "--yes"])
     }
 
     fn bootstrap(&self, root: &Path, enable_networking: bool) -> Result<()> {
@@ -277,7 +227,7 @@ impl Distro for Slackware {
 
     fn install_display_manager(
         &self,
-        root: &Path,
+        _root: &Path,
         dm: &str,
         greeter: Option<&str>,
         _configure_pam_rundir: bool,
@@ -300,10 +250,9 @@ impl Distro for Slackware {
         let mut packages = vec!["xdg-desktop-portal"];
 
         for backend in backends {
-            match *backend {
-                "gtk" => packages.push("xdg-desktop-portal-gtk"),
-                // wlr and kde not in official repos
-                _ => {}
+            // wlr and kde not in official repos
+            if *backend == "gtk" {
+                packages.push("xdg-desktop-portal-gtk");
             }
         }
 
