@@ -1,4 +1,7 @@
+mod alpine;
 mod artix;
+mod devuan;
+mod gentoo;
 pub mod packages;
 mod slackware;
 mod void;
@@ -72,6 +75,9 @@ pub enum DistroKind {
     Artix,
     Void,
     Slackware,
+    Alpine,
+    Gentoo,
+    Devuan,
 }
 
 impl DistroKind {
@@ -80,6 +86,9 @@ impl DistroKind {
             DistroKind::Artix => Box::new(artix::Artix::default()),
             DistroKind::Void => Box::new(void::Void::default()),
             DistroKind::Slackware => Box::new(slackware::Slackware::default()),
+            DistroKind::Alpine => Box::new(alpine::Alpine::default()),
+            DistroKind::Gentoo => Box::new(gentoo::Gentoo::default()),
+            DistroKind::Devuan => Box::new(devuan::Devuan::default()),
         }
     }
 }
