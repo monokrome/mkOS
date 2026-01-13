@@ -187,18 +187,34 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
     // Get keymap from manifest
     let keymap = manifest.system.keymap.clone();
 
-    // Get distro from manifest
-    let distro = match manifest.distro.as_str() {
-        "artix" => DistroKind::Artix,
-        "void" => DistroKind::Void,
-        "slackware" => DistroKind::Slackware,
-        "alpine" => DistroKind::Alpine,
-        "gentoo" => DistroKind::Gentoo,
-        "devuan" => DistroKind::Devuan,
-        other => bail!(
-            "Unknown distro: {}. Supported: artix, void, slackware, alpine, gentoo, devuan",
-            other
-        ),
+    // Get distro - from manifest, auto-detect, or prompt
+    let distro = if manifest.distro == "artix" {
+        // Default value - try to auto-detect, prompt if detection fails
+        match detect_live_distro() {
+            Ok(detected) => {
+                println!("Detected live environment: {}", distro_name(detected));
+                detected
+            }
+            Err(_) => {
+                println!("Could not auto-detect distribution.");
+                prompt_distro()?
+            }
+        }
+    } else {
+        // Non-default value from manifest, use it
+        println!("Using distro from manifest: {}", manifest.distro);
+        match manifest.distro.as_str() {
+            "artix" => DistroKind::Artix,
+            "void" => DistroKind::Void,
+            "slackware" => DistroKind::Slackware,
+            "alpine" => DistroKind::Alpine,
+            "gentoo" => DistroKind::Gentoo,
+            "devuan" => DistroKind::Devuan,
+            other => bail!(
+                "Unknown distro: {}. Supported: artix, void, slackware, alpine, gentoo, devuan",
+                other
+            ),
+        }
     };
 
     // Enable networking - check if any networking services are requested
@@ -639,5 +655,90 @@ fn prompt_microcode() -> Result<bool> {
             )
         }
         CpuVendor::Unknown => Ok(false),
+    }
+}
+
+fn detect_live_distro() -> Result<DistroKind> {
+    use std::fs;
+    use std::path::Path;
+
+    // Check distro-specific files
+    if Path::new("/etc/artix-release").exists() {
+        return Ok(DistroKind::Artix);
+    }
+    if Path::new("/etc/void-release").exists() {
+        return Ok(DistroKind::Void);
+    }
+    if Path::new("/etc/slackware-version").exists() {
+        return Ok(DistroKind::Slackware);
+    }
+    if Path::new("/etc/alpine-release").exists() {
+        return Ok(DistroKind::Alpine);
+    }
+    if Path::new("/etc/gentoo-release").exists() {
+        return Ok(DistroKind::Gentoo);
+    }
+    if Path::new("/etc/devuan_version").exists() {
+        return Ok(DistroKind::Devuan);
+    }
+
+    // Check /etc/os-release
+    if let Ok(content) = fs::read_to_string("/etc/os-release") {
+        let content_lower = content.to_lowercase();
+
+        if content_lower.contains("artix") {
+            return Ok(DistroKind::Artix);
+        }
+        if content_lower.contains("void") {
+            return Ok(DistroKind::Void);
+        }
+        if content_lower.contains("slackware") {
+            return Ok(DistroKind::Slackware);
+        }
+        if content_lower.contains("alpine") {
+            return Ok(DistroKind::Alpine);
+        }
+        if content_lower.contains("gentoo") {
+            return Ok(DistroKind::Gentoo);
+        }
+        if content_lower.contains("devuan") {
+            return Ok(DistroKind::Devuan);
+        }
+    }
+
+    bail!("Could not detect distribution")
+}
+
+fn distro_name(distro: DistroKind) -> &'static str {
+    match distro {
+        DistroKind::Artix => "Artix Linux",
+        DistroKind::Void => "Void Linux",
+        DistroKind::Slackware => "Slackware Linux",
+        DistroKind::Alpine => "Alpine Linux",
+        DistroKind::Gentoo => "Gentoo Linux",
+        DistroKind::Devuan => "Devuan GNU+Linux",
+    }
+}
+
+fn prompt_distro() -> Result<DistroKind> {
+    println!("\nSelect distribution to install:");
+    println!("  [1] Artix Linux (systemd-free Arch, s6/runit/OpenRC)");
+    println!("  [2] Void Linux (independent, runit, musl or glibc)");
+    println!("  [3] Gentoo Linux (source-based, OpenRC)");
+    println!("  [4] Alpine Linux (lightweight, musl, OpenRC)");
+    println!("  [5] Slackware Linux (oldest active distro, SysVinit)");
+    println!("  [6] Devuan GNU+Linux (systemd-free Debian, SysVinit)");
+
+    loop {
+        let input = prompt("Select distribution [1-6]: ")?;
+        match input.as_str() {
+            "1" => return Ok(DistroKind::Artix),
+            "2" => return Ok(DistroKind::Void),
+            "3" => return Ok(DistroKind::Gentoo),
+            "4" => return Ok(DistroKind::Alpine),
+            "5" => return Ok(DistroKind::Slackware),
+            "6" => return Ok(DistroKind::Devuan),
+            _ => println!("Invalid selection. Please enter 1-6."),
+        }
     }
 }
