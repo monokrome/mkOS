@@ -18,7 +18,7 @@ A declarative installer and configuration tool that sets up secure, reproducible
 - **Interactive Mode**: No manifest file required - just run the installer and answer prompts
 - **LUKS2 Encryption**: Full disk encryption with Argon2id key derivation configured automatically
 - **Btrfs Layout**: Proper subvolume structure for root, home, snapshots, and swap isolation
-- **EFISTUB Boot**: Direct kernel boot from UEFI - no bootloader complexity or attack surface
+- **Unified Kernel Images**: Single signed EFI executable containing kernel, initramfs, and cmdline. Direct UEFI boot with automatic updates and Secure Boot support
 - **Declarative Config**: Define your system in a manifest file for reproducible installations
 - **Snapshot Support**: Automatic pre-upgrade snapshots with proper swap isolation via @swap subvolume
 
@@ -83,7 +83,7 @@ This will:
 
 ```
 +------------------+
-|   EFI (512MB)    |  FAT32 - Kernel + Initramfs
+|   EFI (512MB)    |  FAT32 - Unified Kernel Images (UKI)
 +------------------+
 |                  |
 |   LUKS2 Volume   |  AES-XTS-512 + Argon2id
@@ -99,7 +99,7 @@ This will:
 +------------------+
 ```
 
-A properly partitioned, encrypted system with snapshot support, configured to boot directly via EFISTUB.
+A properly partitioned, encrypted system with snapshot support, configured to boot directly via Unified Kernel Images (UKI).
 
 ## Manifest Examples
 
