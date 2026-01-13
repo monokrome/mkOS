@@ -174,49 +174,23 @@ install_items+=" /etc/crypttab "
         let stub_path = stub_paths.iter().find(|p| p.exists()).cloned();
         let uki_full_path = efi_linux_dir.join(&uki_name);
 
-        if let Some(stub) = stub_path {
-            // Use objcopy to build UKI with the stub
-            println!("  Assembling UKI with objcopy...");
-            let osrel_section = "--add-section";
-            let osrel_arg = ".osrel=/etc/os-release";
-            let osrel_vma = "--change-section-vma";
-            let osrel_vma_arg = ".osrel=0x20000";
-            let cmdline_section = "--add-section";
-            let cmdline_arg = format!(".cmdline={}", cmdline_path.display());
-            let cmdline_vma = "--change-section-vma";
-            let cmdline_vma_arg = ".cmdline=0x30000";
-            let linux_section = "--add-section";
-            let linux_arg = format!(".linux={}", target.join("boot/vmlinuz-linux").display());
-            let linux_vma = "--change-section-vma";
-            let linux_vma_arg = ".linux=0x2000000";
-            let initrd_section = "--add-section";
-            let initrd_arg = format!(".initrd={}", target.join("boot/initramfs.img").display());
-            let initrd_vma = "--change-section-vma";
-            let initrd_vma_arg = ".initrd=0x3000000";
-            let stub_str = stub.to_string_lossy().to_string();
-            let uki_str = uki_full_path.to_string_lossy().to_string();
+        if let Some(_stub) = stub_path {
+            // Use ukify to build UKI (proper tool, not objcopy)
+            println!("  Assembling UKI with ukify...");
+
+            let vmlinuz = target.join("boot/vmlinuz-linux");
+            let initramfs = target.join("boot/initramfs.img");
+            let osrel = target.join("etc/os-release");
 
             cmd::run(
-                "objcopy",
+                "ukify",
                 [
-                    osrel_section,
-                    osrel_arg,
-                    osrel_vma,
-                    osrel_vma_arg,
-                    cmdline_section,
-                    &cmdline_arg,
-                    cmdline_vma,
-                    cmdline_vma_arg,
-                    linux_section,
-                    &linux_arg,
-                    linux_vma,
-                    linux_vma_arg,
-                    initrd_section,
-                    &initrd_arg,
-                    initrd_vma,
-                    initrd_vma_arg,
-                    &stub_str,
-                    &uki_str,
+                    "build",
+                    "--linux", &vmlinuz.to_string_lossy(),
+                    "--initrd", &initramfs.to_string_lossy(),
+                    "--cmdline", &cmdline,
+                    "--os-release", &format!("@{}", osrel.display()),
+                    "--output", &uki_full_path.to_string_lossy(),
                 ],
             )?;
         } else {

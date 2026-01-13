@@ -106,40 +106,22 @@ SUBVOL="@"
 echo "==> Building kernel command line..."
 CMDLINE="rd.luks.uuid=$LUKS_UUID root=$ROOT_DEVICE rootflags=subvol=$SUBVOL rw quiet"
 
-# Write cmdline to temp file
-echo "$CMDLINE" > /boot/cmdline.txt
-
-echo "==> Assembling UKI..."
+echo "==> Assembling UKI with ukify..."
 UKI_NAME="mkos-$KVER.efi"
-mkdir -p /boot/Linux
 
-# Find EFI stub
-STUB=""
-for stub_path in \
-    /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
-    /usr/lib/gummiboot/linuxx64.efi.stub \
-    /usr/share/systemd-boot/linuxx64.efi.stub; do
-    if [ -f "$stub_path" ]; then
-        STUB="$stub_path"
-        break
-    fi
-done
-
-if [ -n "$STUB" ]; then
-    # Build UKI with objcopy
-    objcopy \
-        --add-section .osrel=/etc/os-release --change-section-vma .osrel=0x20000 \
-        --add-section .cmdline=/boot/cmdline.txt --change-section-vma .cmdline=0x30000 \
-        --add-section .linux=/boot/vmlinuz-linux --change-section-vma .linux=0x2000000 \
-        --add-section .initrd=/boot/initramfs.img --change-section-vma .initrd=0x3000000 \
-        "$STUB" "/boot/$UKI_NAME"
-else
-    # Fallback: use kernel EFISTUB
-    echo "WARNING: No EFI stub found, using kernel EFISTUB"
-    cp /boot/vmlinuz-linux "/boot/$UKI_NAME"
-    cp /boot/initramfs.img /boot/initramfs.img
-    echo "$CMDLINE" > /boot/cmdline.txt
+# Check if ukify is available
+if ! command -v ukify &>/dev/null; then
+    echo "ERROR: ukify not found. Install with: pacman -S eukify"
+    exit 1
 fi
+
+# Build UKI with ukify
+ukify build \
+    --linux=/boot/vmlinuz-linux \
+    --initrd=/boot/initramfs.img \
+    --cmdline="$CMDLINE" \
+    --os-release=@/etc/os-release \
+    --output="/boot/$UKI_NAME"
 
 # Update startup.nsh
 echo "==> Updating UEFI fallback script..."
@@ -149,9 +131,6 @@ cat > /boot/startup.nsh <<EOF
 # if no boot entries are found in NVRAM
 \\$UKI_NAME
 EOF
-
-# Clean up temp file
-rm -f /boot/cmdline.txt
 
 echo "✓ UKI rebuilt: /boot/$UKI_NAME"
 
