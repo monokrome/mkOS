@@ -21,6 +21,7 @@ void = "base-system"
 alpine = "alpine-base"
 gentoo = "@system"
 devuan = "systemd-shim"
+slackware = "aaa_base"
 
 # =============================================================================
 # KERNEL & FIRMWARE
@@ -33,6 +34,7 @@ void = "linux"
 alpine = "linux-lts"
 gentoo = "sys-kernel/gentoo-kernel-bin"
 devuan = "linux-image-amd64"
+slackware = "kernel-generic"
 
 [package."linux-firmware"]
 description = "Firmware for hardware devices"
@@ -41,6 +43,7 @@ void = "linux-firmware"
 alpine = "linux-firmware"
 gentoo = "sys-kernel/linux-firmware"
 devuan = "firmware-linux"
+slackware = "kernel-firmware"
 
 [package."intel-ucode"]
 description = "Intel CPU microcode updates"
@@ -49,6 +52,7 @@ void = "intel-ucode"
 alpine = "intel-ucode"
 gentoo = "sys-firmware/intel-microcode"
 devuan = "intel-microcode"
+slackware = ""
 
 [package."amd-ucode"]
 description = "AMD CPU microcode updates"
@@ -57,6 +61,7 @@ void = "amd-ucode"
 alpine = "amd-ucode"
 gentoo = "sys-firmware/amd-microcode"
 devuan = "amd64-microcode"
+slackware = ""
 
 # =============================================================================
 # BOOT & EFI
@@ -69,6 +74,7 @@ void = "dracut"
 alpine = "dracut"  # Available in testing/edge
 gentoo = "sys-kernel/dracut"
 devuan = "dracut"
+slackware = "dracut"
 
 [package."efibootmgr"]
 description = "EFI boot entry manager"
@@ -77,6 +83,7 @@ void = "efibootmgr"
 alpine = "efibootmgr"
 gentoo = "sys-boot/efibootmgr"
 devuan = "efibootmgr"
+slackware = "efibootmgr"
 
 [package."sbsigntools"]
 description = "Secure Boot signing tools"
@@ -85,6 +92,7 @@ void = "sbsigntools"
 alpine = "sbsigntools"
 gentoo = "app-crypt/sbsigntools"
 devuan = "sbsigntool"
+slackware = ""
 
 [package."eukify"]
 description = "UKI (Unified Kernel Image) builder"
@@ -93,6 +101,7 @@ void = "ukify"  # May need manual install
 alpine = ""  # Not available
 gentoo = ""  # Not available
 devuan = ""  # Not available
+slackware = ""
 
 # =============================================================================
 # ENCRYPTION & FILESYSTEM
@@ -105,6 +114,7 @@ void = "cryptsetup"
 alpine = "cryptsetup"
 gentoo = "sys-fs/cryptsetup"
 devuan = "cryptsetup"
+slackware = "cryptsetup"
 
 [package."btrfs-progs"]
 description = "Btrfs filesystem utilities"
@@ -113,6 +123,7 @@ void = "btrfs-progs"
 alpine = "btrfs-progs"
 gentoo = "sys-fs/btrfs-progs"
 devuan = "btrfs-progs"
+slackware = "btrfs-progs"
 
 # =============================================================================
 # NETWORKING
@@ -125,6 +136,7 @@ void = "dhcpcd"
 alpine = "dhcpcd"
 gentoo = "net-misc/dhcpcd"
 devuan = "dhcpcd5"
+slackware = "dhcpcd"
 
 [package."iwd"]
 description = "Intel wireless daemon (WiFi)"
@@ -133,6 +145,7 @@ void = "iwd"
 alpine = "iwd"
 gentoo = "net-wireless/iwd"
 devuan = "iwd"
+slackware = "iwd"
 
 [package."avahi"]
 description = "mDNS/DNS-SD service discovery"
@@ -141,6 +154,7 @@ void = "avahi"
 alpine = "avahi"
 gentoo = "net-dns/avahi"
 devuan = "avahi-daemon"
+slackware = "avahi"
 
 [package."nss-mdns"]
 description = "NSS module for mDNS hostname resolution"
@@ -149,6 +163,7 @@ void = "nss-mdns"
 alpine = "avahi-nss-mdns"  # Different name on Alpine!
 gentoo = "sys-auth/nss-mdns"
 devuan = "libnss-mdns"
+slackware = ""
 
 [package."openssh"]
 description = "OpenSSH server and client"
@@ -157,6 +172,7 @@ void = "openssh"
 alpine = "openssh"
 gentoo = "net-misc/openssh"
 devuan = "openssh-server"
+slackware = "openssh"
 
 [package."openssh-s6"]
 description = "OpenSSH s6 service scripts"
@@ -165,6 +181,7 @@ void = ""  # Uses runit
 alpine = ""  # Uses OpenRC
 gentoo = ""  # Uses OpenRC
 devuan = ""  # Uses SysVinit
+slackware = ""
 
 [package."eternalterminal"]
 description = "Eternal Terminal (persistent SSH)"
@@ -173,6 +190,7 @@ void = "eternalterminal"
 alpine = ""  # Not in repos
 gentoo = ""  # Not in repos
 devuan = ""  # Not in repos
+slackware = ""
 
 [package."nftables"]
 description = "Modern Linux firewall (nftables)"
@@ -181,6 +199,7 @@ void = "nftables"
 alpine = "nftables"
 gentoo = "net-firewall/nftables"
 devuan = "nftables"
+slackware = "nftables"
 
 # =============================================================================
 # INIT SYSTEMS
@@ -193,6 +212,7 @@ void = "s6"
 alpine = "s6"
 gentoo = "sys-apps/s6"
 devuan = "s6"
+slackware = ""
 
 [package."s6-rc"]
 description = "s6 service manager"
@@ -201,6 +221,7 @@ void = "s6-rc"
 alpine = "s6-rc"
 gentoo = "sys-apps/s6-rc"
 devuan = "s6-rc"
+slackware = ""
 
 [package."s6-linux-init"]
 description = "s6-based init system"
@@ -209,6 +230,7 @@ void = "s6-linux-init"
 alpine = "s6-linux-init"
 gentoo = "sys-apps/s6-linux-init"
 devuan = "s6-linux-init"
+slackware = ""
 
 [package."s6-base"]
 description = "s6 base metapackage (Artix-specific)"
@@ -217,6 +239,7 @@ void = ""
 alpine = ""
 gentoo = ""
 devuan = ""
+slackware = ""
 
 [package."openrc"]
 description = "OpenRC init system"
@@ -225,6 +248,7 @@ void = ""
 alpine = "openrc"
 gentoo = "sys-apps/openrc"
 devuan = "openrc"
+slackware = ""
 
 [package."runit"]
 description = "runit init system"
@@ -233,6 +257,7 @@ void = ""  # Built-in
 alpine = "runit"
 gentoo = "sys-process/runit"
 devuan = "runit"
+slackware = ""
 
 # =============================================================================
 # WAYLAND & DISPLAY
@@ -245,6 +270,7 @@ void = "wayland"
 alpine = "wayland"
 gentoo = "dev-libs/wayland"
 devuan = "libwayland-client0"
+slackware = "wayland"
 
 [package."wayland-protocols"]
 description = "Wayland protocol extensions"
@@ -253,6 +279,7 @@ void = "wayland-protocols"
 alpine = "wayland-protocols"
 gentoo = "dev-libs/wayland-protocols"
 devuan = "wayland-protocols"
+slackware = "wayland-protocols"
 
 [package."wlroots"]
 description = "Wayland compositor library"
@@ -261,6 +288,7 @@ void = "wlroots"
 alpine = "wlroots"
 gentoo = "gui-libs/wlroots"
 devuan = "libwlroots11"
+slackware = "wlroots"
 
 [package."xwayland"]
 description = "X11 compatibility for Wayland"
@@ -269,6 +297,7 @@ void = "xorg-server-xwayland"
 alpine = "xwayland"
 gentoo = "x11-base/xwayland"
 devuan = "xwayland"
+slackware = "xorg-server-xwayland"
 
 [package."libinput"]
 description = "Input device library"
@@ -277,6 +306,7 @@ void = "libinput"
 alpine = "libinput"
 gentoo = "dev-libs/libinput"
 devuan = "libinput10"
+slackware = "libinput"
 
 [package."mesa"]
 description = "Open-source graphics drivers"
@@ -285,6 +315,7 @@ void = "mesa-dri"
 alpine = "mesa-dri-gallium"
 gentoo = "media-libs/mesa"
 devuan = "mesa-utils"
+slackware = "mesa"
 
 # =============================================================================
 # DISPLAY MANAGERS & GREETERS
@@ -297,6 +328,7 @@ void = "greetd"
 alpine = "greetd"
 gentoo = "gui-apps/greetd"
 devuan = ""  # Not in repos
+slackware = ""
 
 [package."greetd-tuigreet"]
 description = "TUI greeter for greetd"
@@ -305,6 +337,7 @@ void = "greetd-tuigreet"
 alpine = "greetd-tuigreet"
 gentoo = "gui-apps/tuigreet"
 devuan = ""
+slackware = ""
 
 [package."greetd-gtkgreet"]
 description = "GTK greeter for greetd"
@@ -313,6 +346,7 @@ void = ""
 alpine = ""
 gentoo = "gui-apps/gtkgreet"
 devuan = ""
+slackware = ""
 
 [package."greetd-regreet"]
 description = "GTK4 greeter for greetd"
@@ -321,6 +355,7 @@ void = ""
 alpine = ""
 gentoo = ""
 devuan = ""
+slackware = ""
 
 [package."cage"]
 description = "Wayland kiosk compositor (for regreet)"
@@ -329,6 +364,7 @@ void = "cage"
 alpine = "cage"
 gentoo = "gui-wm/cage"
 devuan = ""
+slackware = ""
 
 [package."ly"]
 description = "TUI display manager"
@@ -337,6 +373,7 @@ void = "ly"
 alpine = ""
 gentoo = ""
 devuan = ""
+slackware = ""
 
 [package."ly-s6"]
 description = "ly s6 service scripts"
@@ -345,6 +382,7 @@ void = ""
 alpine = ""
 gentoo = ""
 devuan = ""
+slackware = ""
 
 # =============================================================================
 # TERMINAL & APPLICATIONS
@@ -357,6 +395,7 @@ void = "kitty"
 alpine = "kitty"
 gentoo = "x11-terms/kitty"
 devuan = "kitty"
+slackware = "kitty"
 
 [package."rofi-wayland"]
 description = "Wayland-native application launcher"
@@ -365,6 +404,7 @@ void = "rofi-wayland"
 alpine = ""  # rofi-wayland not in stable
 gentoo = "x11-misc/rofi"
 devuan = "rofi"
+slackware = ""
 
 # =============================================================================
 # AUDIO
@@ -377,6 +417,7 @@ void = "pipewire"
 alpine = "pipewire"
 gentoo = "media-video/pipewire"
 devuan = "pipewire"
+slackware = "pipewire"
 
 [package."wireplumber"]
 description = "PipeWire session manager"
@@ -385,6 +426,7 @@ void = "wireplumber"
 alpine = "wireplumber"
 gentoo = "media-video/wireplumber"
 devuan = "wireplumber"
+slackware = "wireplumber"
 
 [package."pipewire-pulse"]
 description = "PipeWire PulseAudio compatibility"
@@ -393,6 +435,7 @@ void = ""  # Included in pipewire
 alpine = "pipewire-pulse"
 gentoo = "media-video/pipewire[sound-server]"
 devuan = "pipewire-pulse"
+slackware = ""
 
 [package."pipewire-alsa"]
 description = "PipeWire ALSA compatibility"
@@ -401,6 +444,7 @@ void = ""  # Included in pipewire
 alpine = "pipewire-alsa"
 gentoo = "media-video/pipewire[sound-server]"
 devuan = "pipewire-alsa"
+slackware = ""
 
 [package."pipewire-jack"]
 description = "PipeWire JACK compatibility"
@@ -409,6 +453,7 @@ void = ""  # Included in pipewire
 alpine = "pipewire-jack"
 gentoo = "media-video/pipewire[jack-sdk]"
 devuan = "pipewire-jack"
+slackware = ""
 
 # =============================================================================
 # XDG DESKTOP PORTALS
@@ -421,6 +466,7 @@ void = "xdg-desktop-portal"
 alpine = "xdg-desktop-portal"
 gentoo = "sys-apps/xdg-desktop-portal"
 devuan = "xdg-desktop-portal"
+slackware = "xdg-desktop-portal"
 
 [package."xdg-desktop-portal-wlr"]
 description = "wlroots portal backend"
@@ -429,6 +475,7 @@ void = "xdg-desktop-portal-wlr"
 alpine = "xdg-desktop-portal-wlr"
 gentoo = "gui-libs/xdg-desktop-portal-wlr"
 devuan = ""
+slackware = ""
 
 [package."xdg-desktop-portal-gtk"]
 description = "GTK portal backend"
@@ -437,6 +484,7 @@ void = "xdg-desktop-portal-gtk"
 alpine = "xdg-desktop-portal-gtk"
 gentoo = "sys-apps/xdg-desktop-portal-gtk"
 devuan = "xdg-desktop-portal-gtk"
+slackware = "xdg-desktop-portal-gtk"
 
 [package."xdg-desktop-portal-kde"]
 description = "KDE portal backend"
@@ -445,6 +493,7 @@ void = "xdg-desktop-portal-kde"
 alpine = ""
 gentoo = "kde-plasma/xdg-desktop-portal-kde"
 devuan = ""
+slackware = ""
 
 [package."xdg-utils"]
 description = "XDG utilities for desktop integration"
@@ -453,6 +502,7 @@ void = "xdg-utils"
 alpine = "xdg-utils"
 gentoo = "x11-misc/xdg-utils"
 devuan = "xdg-utils"
+slackware = "xdg-utils"
 
 # =============================================================================
 # FONTS
@@ -465,6 +515,7 @@ void = "font-hack-ttf"
 alpine = "font-hack"
 gentoo = "media-fonts/hack"
 devuan = "fonts-hack"
+slackware = "hack-fonts-ttf"
 
 [package."font-noto"]
 description = "Noto fonts family"
@@ -473,6 +524,7 @@ void = "noto-fonts-ttf"
 alpine = "font-noto"
 gentoo = "media-fonts/noto"
 devuan = "fonts-noto"
+slackware = "noto-fonts-ttf"
 
 [package."font-noto-emoji"]
 description = "Noto Color Emoji font"
@@ -481,6 +533,7 @@ void = "noto-fonts-emoji"
 alpine = "font-noto-emoji"
 gentoo = "media-fonts/noto-emoji"
 devuan = "fonts-noto-color-emoji"
+slackware = "noto-emoji"
 
 # =============================================================================
 # GPU DRIVERS - NVIDIA
@@ -493,6 +546,7 @@ void = "nvidia"
 alpine = ""  # Not available
 gentoo = "x11-drivers/nvidia-drivers"
 devuan = "nvidia-driver"
+slackware = "nvidia-driver"
 
 [package."nvidia-utils"]
 description = "NVIDIA userspace utilities"
@@ -501,6 +555,7 @@ void = ""  # Included in nvidia
 alpine = ""
 gentoo = ""  # Included in nvidia-drivers
 devuan = ""  # Included in nvidia-driver
+slackware = ""
 
 [package."nvidia-prime"]
 description = "NVIDIA PRIME render offload"
@@ -509,6 +564,7 @@ void = ""
 alpine = ""
 gentoo = ""
 devuan = "nvidia-prime"
+slackware = ""
 
 [package."lib32-nvidia-utils"]
 description = "NVIDIA 32-bit compatibility"
@@ -517,6 +573,7 @@ void = ""
 alpine = ""
 gentoo = "x11-drivers/nvidia-drivers[abi_x86_32]"
 devuan = "nvidia-driver-libs:i386"
+slackware = ""
 
 # =============================================================================
 # GPU DRIVERS - AMD
@@ -529,6 +586,7 @@ void = ""  # Included in mesa
 alpine = "mesa-vulkan-ati"
 gentoo = "media-libs/mesa[vulkan,video_cards_radeonsi]"
 devuan = "mesa-vulkan-drivers"
+slackware = "mesa"
 
 [package."lib32-mesa"]
 description = "Mesa 32-bit compatibility"
@@ -537,6 +595,7 @@ void = ""
 alpine = ""
 gentoo = "media-libs/mesa[abi_x86_32]"
 devuan = "libgl1-mesa-dri:i386"
+slackware = ""
 
 [package."lib32-vulkan-radeon"]
 description = "AMD Vulkan 32-bit compatibility"
@@ -545,6 +604,7 @@ void = ""
 alpine = ""
 gentoo = "media-libs/mesa[abi_x86_32,vulkan]"
 devuan = ""
+slackware = ""
 
 # =============================================================================
 # SYSTEM SERVICES
@@ -557,6 +617,7 @@ void = "seatd"
 alpine = "seatd"
 gentoo = "sys-auth/seatd"
 devuan = "seatd"
+slackware = "seatd"
 
 [package."seatd-s6"]
 description = "seatd s6 service scripts"
@@ -565,6 +626,7 @@ void = ""
 alpine = ""
 gentoo = ""
 devuan = ""
+slackware = ""
 
 [package."elogind"]
 description = "Logind without systemd"
@@ -573,6 +635,7 @@ void = ""
 alpine = "elogind"
 gentoo = "sys-auth/elogind"
 devuan = "elogind"
+slackware = "elogind"
 
 [package."elogind-s6"]
 description = "elogind s6 service scripts"
@@ -581,6 +644,7 @@ void = ""
 alpine = ""
 gentoo = ""
 devuan = ""
+slackware = ""
 
 [package."dbus"]
 description = "D-Bus message bus system"
@@ -589,6 +653,7 @@ void = "dbus"
 alpine = "dbus"
 gentoo = "sys-apps/dbus"
 devuan = "dbus"
+slackware = "dbus"
 
 [package."dbus-s6"]
 description = "dbus s6 service scripts"
@@ -597,6 +662,7 @@ void = ""
 alpine = ""
 gentoo = ""
 devuan = ""
+slackware = ""
 
 [package."polkit"]
 description = "Authorization framework"
@@ -605,6 +671,7 @@ void = "polkit"
 alpine = "polkit"
 gentoo = "sys-auth/polkit"
 devuan = "policykit-1"
+slackware = "polkit"
 
 [package."pam_rundir"]
 description = "PAM module for XDG_RUNTIME_DIR"
@@ -613,6 +680,7 @@ void = "pam_rundir"
 alpine = ""  # Not in repos
 gentoo = ""  # Not in repos
 devuan = "libpam-rundir"
+slackware = ""
 
 # =============================================================================
 # NOTES
