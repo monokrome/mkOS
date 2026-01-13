@@ -112,6 +112,8 @@ See the `examples/` directory for sample manifests:
 
 Each manifest shows distribution-specific configuration options and available features.
 
+For detailed information about distribution support status, see [`installer/DISTRO_STATUS.md`](installer/DISTRO_STATUS.md).
+
 ## Commands Reference
 
 ### Installation
