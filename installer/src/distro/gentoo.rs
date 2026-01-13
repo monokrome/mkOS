@@ -143,9 +143,18 @@ impl Distro for Gentoo {
     }
 
     fn bootstrap(&self, root: &Path, enable_networking: bool) -> Result<()> {
-        // Gentoo bootstrap is complex - typically done via stage3 tarball
-        // For simplicity, assume stage3 is already extracted
+        println!("\n=== Gentoo Bootstrap ===");
 
+        // Check if stage3 is already extracted
+        if !is_stage3_extracted(root)? {
+            println!("Stage3 not found. Downloading and extracting...\n");
+            download_and_extract_stage3(root)?;
+        } else {
+            println!("Stage3 already extracted, skipping download.\n");
+        }
+
+        // Install kernel and essential packages
+        println!("Installing kernel and essential packages...");
         let mut packages = vec!["sys-kernel/gentoo-kernel-bin"];
 
         if enable_networking {
@@ -298,5 +307,157 @@ exec /usr/local/bin/mkos-rebuild-uki
         println!("✓ Installed kernel hook for Gentoo (kernel postinst.d)");
 
         Ok(())
+    }
+}
+
+// Helper functions for stage3 bootstrap
+
+fn is_stage3_extracted(root: &Path) -> Result<bool> {
+    // Check if essential Gentoo directories exist
+    let markers = [
+        root.join("etc/portage"),
+        root.join("var/db/repos/gentoo"),
+        root.join("usr/portage"), // Older location
+    ];
+
+    // If any marker exists, assume stage3 is extracted
+    Ok(markers.iter().any(|p| p.exists()))
+}
+
+fn download_and_extract_stage3(root: &Path) -> Result<()> {
+    use std::io::{self, Write};
+    use std::process::Command;
+
+    // Detect architecture
+    let arch = detect_architecture()?;
+    println!("Detected architecture: {}", arch);
+
+    // Prompt for stage3 variant
+    let variant = prompt_stage3_variant()?;
+    println!("Selected variant: {}\n", variant);
+
+    // Construct download URL
+    let mirror = "https://distfiles.gentoo.org/releases";
+    let autobuilds = format!("{}/{}/autobuilds", mirror, arch);
+
+    // Get latest stage3 filename
+    println!("Fetching latest stage3 information...");
+    let latest_file = format!("latest-stage3-{}-{}.txt", arch, variant);
+    let latest_url = format!("{}/{}", autobuilds, latest_file);
+
+    let output = Command::new("curl")
+        .args(["-sL", &latest_url])
+        .output()
+        .context("Failed to fetch latest stage3 info. Is curl installed?")?;
+
+    if !output.status.success() {
+        anyhow::bail!("Failed to fetch latest stage3 info from Gentoo mirrors");
+    }
+
+    let latest_content = String::from_utf8_lossy(&output.stdout);
+
+    // Parse the latest file - format is:
+    // # comment lines
+    // YYYYMMDDTHHMMSSZ/stage3-amd64-openrc-YYYYMMDDTHHMMSSZ.tar.xz
+    let stage3_path = latest_content
+        .lines()
+        .find(|line| !line.starts_with('#') && line.contains("stage3"))
+        .ok_or_else(|| anyhow::anyhow!("Could not parse latest stage3 file"))?
+        .trim();
+
+    let stage3_url = format!("{}/{}", autobuilds, stage3_path);
+    let filename = stage3_path.split('/').last().unwrap();
+
+    println!("Downloading: {}", filename);
+    println!("This may take several minutes...\n");
+
+    // Download to /tmp
+    let tmp_path = format!("/tmp/{}", filename);
+
+    let status = Command::new("curl")
+        .args([
+            "-L",          // Follow redirects
+            "--progress-bar",  // Show progress
+            "-o", &tmp_path,   // Output file
+            &stage3_url,
+        ])
+        .status()
+        .context("Failed to download stage3 tarball")?;
+
+    if !status.success() {
+        anyhow::bail!("Failed to download stage3 tarball");
+    }
+
+    println!("\n✓ Download complete");
+
+    // Extract to root
+    println!("Extracting stage3 tarball to {}...", root.display());
+    println!("This will take a few minutes...\n");
+
+    let root_str = root.to_string_lossy();
+    let status = Command::new("tar")
+        .args([
+            "xpf",
+            &tmp_path,
+            "--xattrs-include=*.*",
+            "--numeric-owner",
+            "-C",
+            &root_str,
+        ])
+        .status()
+        .context("Failed to extract stage3 tarball")?;
+
+    if !status.success() {
+        anyhow::bail!("Failed to extract stage3 tarball");
+    }
+
+    // Clean up
+    let _ = std::fs::remove_file(&tmp_path);
+
+    println!("✓ Stage3 extracted successfully\n");
+
+    Ok(())
+}
+
+fn detect_architecture() -> Result<&'static str> {
+    use std::process::Command;
+
+    let output = Command::new("uname")
+        .arg("-m")
+        .output()
+        .context("Failed to detect architecture")?;
+
+    let arch = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    match arch.as_str() {
+        "x86_64" => Ok("amd64"),
+        "aarch64" => Ok("arm64"),
+        "armv7l" => Ok("arm"),
+        "ppc64le" => Ok("ppc64le"),
+        other => anyhow::bail!("Unsupported architecture: {}", other),
+    }
+}
+
+fn prompt_stage3_variant() -> Result<&'static str> {
+    use std::io::{self, Write};
+
+    println!("Select Gentoo stage3 variant:");
+    println!("  [1] openrc - Standard OpenRC init (recommended)");
+    println!("  [2] openrc-hardened - Hardened OpenRC with security features");
+    println!("  [3] musl-openrc - OpenRC with musl libc (lightweight)");
+
+    loop {
+        print!("Select variant [1-3]: ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        match input.trim() {
+            "1" | "" => return Ok("openrc"),
+            "2" => return Ok("openrc-hardened"),
+            "3" => return Ok("musl-openrc"),
+            _ => println!("Invalid selection. Please enter 1-3."),
+        }
     }
 }

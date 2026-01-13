@@ -38,29 +38,31 @@ sudo mkos-install my-void.yml
 
 ### ⚠️ Needs Testing
 
-#### **Gentoo Linux**
-- **Status**: Backend complete, requires stage3 pre-extraction
+#### **Gentoo Linux** - NOW FULLY AUTOMATED!
+- **Status**: ✅ Automatic stage3 download and extraction
 - **Init System**: OpenRC
 - **Package Manager**: emerge (Portage)
-- **Bootstrap**: **REQUIRES MANUAL STAGE3 SETUP**
-- **Notes**: Most complex installation
+- **Bootstrap**: **FULLY AUTOMATED** (downloads latest stage3)
+- **Notes**: Prompts for variant selection (openrc, hardened, musl)
 
-**Installation Steps:**
-1. Download stage3 tarball from https://www.gentoo.org/downloads/
-2. Boot live environment and partition disk manually
-3. Extract stage3 to /mnt:
-   ```bash
-   tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt
-   ```
-4. Copy example manifest:
-   ```bash
-   cp examples/gentoo-minimal.yml my-gentoo.yml
-   ```
-5. Edit manifest with your settings
-6. Run installer (it will install kernel and configure system):
-   ```bash
-   sudo mkos-install my-gentoo.yml
-   ```
+**Quick Install:**
+```bash
+# 1. Boot Gentoo minimal ISO (or any live environment with curl and tar)
+# 2. Build installer
+git clone https://github.com/monokrome/mkOS.git && cd mkOS/installer
+cargo build --release
+
+# 3. Just run it - fully automated!
+sudo target/release/mkos-install
+
+# The installer will:
+# - Auto-detect architecture (amd64, arm64, etc.)
+# - Prompt for stage3 variant (openrc, hardened, musl)
+# - Download latest stage3 from Gentoo mirrors (~250-400MB)
+# - Extract stage3 with correct permissions
+# - Install kernel and configure system
+# - All done!
+```
 
 #### **Alpine Linux**
 - **Status**: Backend complete, untested
@@ -262,30 +264,23 @@ sudo mkos-install my-install.yml
 sudo reboot
 ```
 
-### Gentoo Linux Install:
+### Gentoo Linux Install (Interactive - FULLY AUTOMATED):
 ```bash
-# 1. Boot Gentoo minimal ISO
-# 2. Download stage3
-wget https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-openrc/stage3-amd64-openrc-*.tar.xz
+# 1. Boot Gentoo minimal ISO (or any live environment with curl and tar)
+# 2. Build installer
+git clone https://github.com/monokrome/mkOS.git && cd mkOS/installer
+cargo build --release
 
-# 3. Manually partition disk and mount
-mkfs.vfat /dev/nvme0n1p1  # EFI
-cryptsetup luksFormat /dev/nvme0n1p2
-cryptsetup open /dev/nvme0n1p2 cryptroot
-mkfs.btrfs /dev/mapper/cryptroot
-mount /dev/mapper/cryptroot /mnt
+# 3. Just run it - fully automated!
+sudo target/release/mkos-install
 
-# 4. Extract stage3
-tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt
-
-# 5. Build installer in chroot
-mount --bind /proc /mnt/proc
-mount --bind /sys /mnt/sys
-mount --bind /dev /mnt/dev
-chroot /mnt
-# ... build and run installer from chroot
-
-# OR use the installer to finish configuration after stage3 extraction
+# The installer will:
+# - Auto-detect architecture (amd64, arm64, etc.)
+# - Prompt for stage3 variant (openrc, hardened, musl)
+# - Download latest stage3 from Gentoo mirrors (~250-400MB)
+# - Extract stage3 with correct permissions
+# - Install kernel and configure system
+# - All done!
 ```
 
 Good luck with the install! 🚀

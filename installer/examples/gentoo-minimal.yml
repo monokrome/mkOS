@@ -1,14 +1,17 @@
 # Gentoo Linux minimal installation manifest
 # Usage: sudo mkos-install gentoo-minimal.yml
 #
-# IMPORTANT: Gentoo bootstrap requires a stage3 tarball
-# Before running the installer:
-# 1. Download stage3 from https://www.gentoo.org/downloads/
-# 2. Extract to /mnt: tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt
-# 3. Then run: sudo mkos-install gentoo-minimal.yml
+# The installer now AUTOMATICALLY downloads and extracts stage3!
+# You will be prompted to select:
+#   - Architecture (auto-detected)
+#   - Stage3 variant (openrc, hardened, musl, etc.)
 #
-# Alternatively, the installer will attempt to install the kernel,
-# but expects the base system to already be bootstrapped.
+# The installer will then:
+#   - Download the latest stage3 tarball from Gentoo mirrors
+#   - Extract it to /mnt with proper permissions
+#   - Install kernel and configure the system
+#
+# No manual stage3 download required!
 
 # Distribution selection
 distro: gentoo
