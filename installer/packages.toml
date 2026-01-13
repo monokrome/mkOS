@@ -1,0 +1,625 @@
+# mkOS Package Mapping Database
+# Maps generic package names to distro-specific package names
+#
+# Format:
+# [package."generic-name"]
+# description = "What this package does"
+# artix = "artix-package-name"
+# void = "void-package-name"
+# alpine = "alpine-package-name"
+# gentoo = "category/gentoo-package-name"
+# devuan = "devuan-package-name"
+
+# =============================================================================
+# SYSTEM BASE
+# =============================================================================
+
+[package."base-system"]
+description = "Base system metapackage"
+artix = "base"
+void = "base-system"
+alpine = "alpine-base"
+gentoo = "@system"
+devuan = "systemd-shim"
+
+# =============================================================================
+# KERNEL & FIRMWARE
+# =============================================================================
+
+[package."linux-kernel"]
+description = "Linux kernel"
+artix = "linux"
+void = "linux"
+alpine = "linux-lts"
+gentoo = "sys-kernel/gentoo-kernel-bin"
+devuan = "linux-image-amd64"
+
+[package."linux-firmware"]
+description = "Firmware for hardware devices"
+artix = "linux-firmware"
+void = "linux-firmware"
+alpine = "linux-firmware"
+gentoo = "sys-kernel/linux-firmware"
+devuan = "firmware-linux"
+
+[package."intel-ucode"]
+description = "Intel CPU microcode updates"
+artix = "intel-ucode"
+void = "intel-ucode"
+alpine = "intel-ucode"
+gentoo = "sys-firmware/intel-microcode"
+devuan = "intel-microcode"
+
+[package."amd-ucode"]
+description = "AMD CPU microcode updates"
+artix = "amd-ucode"
+void = "amd-ucode"
+alpine = "amd-ucode"
+gentoo = "sys-firmware/amd-microcode"
+devuan = "amd64-microcode"
+
+# =============================================================================
+# BOOT & EFI
+# =============================================================================
+
+[package."dracut"]
+description = "Initramfs generator"
+artix = "dracut"
+void = "dracut"
+alpine = "dracut"  # Available in testing/edge
+gentoo = "sys-kernel/dracut"
+devuan = "dracut"
+
+[package."efibootmgr"]
+description = "EFI boot entry manager"
+artix = "efibootmgr"
+void = "efibootmgr"
+alpine = "efibootmgr"
+gentoo = "sys-boot/efibootmgr"
+devuan = "efibootmgr"
+
+[package."sbsigntools"]
+description = "Secure Boot signing tools"
+artix = "sbsigntools"
+void = "sbsigntools"
+alpine = "sbsigntools"
+gentoo = "app-crypt/sbsigntools"
+devuan = "sbsigntool"
+
+[package."eukify"]
+description = "UKI (Unified Kernel Image) builder"
+artix = "eukify"
+void = "ukify"  # May need manual install
+alpine = ""  # Not available
+gentoo = ""  # Not available
+devuan = ""  # Not available
+
+# =============================================================================
+# ENCRYPTION & FILESYSTEM
+# =============================================================================
+
+[package."cryptsetup"]
+description = "LUKS disk encryption"
+artix = "cryptsetup"
+void = "cryptsetup"
+alpine = "cryptsetup"
+gentoo = "sys-fs/cryptsetup"
+devuan = "cryptsetup"
+
+[package."btrfs-progs"]
+description = "Btrfs filesystem utilities"
+artix = "btrfs-progs"
+void = "btrfs-progs"
+alpine = "btrfs-progs"
+gentoo = "sys-fs/btrfs-progs"
+devuan = "btrfs-progs"
+
+# =============================================================================
+# NETWORKING
+# =============================================================================
+
+[package."dhcpcd"]
+description = "DHCP client daemon"
+artix = "dhcpcd"
+void = "dhcpcd"
+alpine = "dhcpcd"
+gentoo = "net-misc/dhcpcd"
+devuan = "dhcpcd5"
+
+[package."iwd"]
+description = "Intel wireless daemon (WiFi)"
+artix = "iwd"
+void = "iwd"
+alpine = "iwd"
+gentoo = "net-wireless/iwd"
+devuan = "iwd"
+
+[package."avahi"]
+description = "mDNS/DNS-SD service discovery"
+artix = "avahi"
+void = "avahi"
+alpine = "avahi"
+gentoo = "net-dns/avahi"
+devuan = "avahi-daemon"
+
+[package."nss-mdns"]
+description = "NSS module for mDNS hostname resolution"
+artix = "nss-mdns"
+void = "nss-mdns"
+alpine = "avahi-nss-mdns"  # Different name on Alpine!
+gentoo = "sys-auth/nss-mdns"
+devuan = "libnss-mdns"
+
+[package."openssh"]
+description = "OpenSSH server and client"
+artix = "openssh"
+void = "openssh"
+alpine = "openssh"
+gentoo = "net-misc/openssh"
+devuan = "openssh-server"
+
+[package."openssh-s6"]
+description = "OpenSSH s6 service scripts"
+artix = "openssh-s6"
+void = ""  # Uses runit
+alpine = ""  # Uses OpenRC
+gentoo = ""  # Uses OpenRC
+devuan = ""  # Uses SysVinit
+
+[package."eternalterminal"]
+description = "Eternal Terminal (persistent SSH)"
+artix = "eternalterminal"
+void = "eternalterminal"
+alpine = ""  # Not in repos
+gentoo = ""  # Not in repos
+devuan = ""  # Not in repos
+
+[package."nftables"]
+description = "Modern Linux firewall (nftables)"
+artix = "nftables"
+void = "nftables"
+alpine = "nftables"
+gentoo = "net-firewall/nftables"
+devuan = "nftables"
+
+# =============================================================================
+# INIT SYSTEMS
+# =============================================================================
+
+[package."s6"]
+description = "s6 supervision suite"
+artix = "s6"
+void = "s6"
+alpine = "s6"
+gentoo = "sys-apps/s6"
+devuan = "s6"
+
+[package."s6-rc"]
+description = "s6 service manager"
+artix = "s6-rc"
+void = "s6-rc"
+alpine = "s6-rc"
+gentoo = "sys-apps/s6-rc"
+devuan = "s6-rc"
+
+[package."s6-linux-init"]
+description = "s6-based init system"
+artix = "s6-linux-init"
+void = "s6-linux-init"
+alpine = "s6-linux-init"
+gentoo = "sys-apps/s6-linux-init"
+devuan = "s6-linux-init"
+
+[package."s6-base"]
+description = "s6 base metapackage (Artix-specific)"
+artix = "s6-base"
+void = ""
+alpine = ""
+gentoo = ""
+devuan = ""
+
+[package."openrc"]
+description = "OpenRC init system"
+artix = "openrc"
+void = ""
+alpine = "openrc"
+gentoo = "sys-apps/openrc"
+devuan = "openrc"
+
+[package."runit"]
+description = "runit init system"
+artix = "runit"
+void = ""  # Built-in
+alpine = "runit"
+gentoo = "sys-process/runit"
+devuan = "runit"
+
+# =============================================================================
+# WAYLAND & DISPLAY
+# =============================================================================
+
+[package."wayland"]
+description = "Wayland compositor protocol"
+artix = "wayland"
+void = "wayland"
+alpine = "wayland"
+gentoo = "dev-libs/wayland"
+devuan = "libwayland-client0"
+
+[package."wayland-protocols"]
+description = "Wayland protocol extensions"
+artix = "wayland-protocols"
+void = "wayland-protocols"
+alpine = "wayland-protocols"
+gentoo = "dev-libs/wayland-protocols"
+devuan = "wayland-protocols"
+
+[package."wlroots"]
+description = "Wayland compositor library"
+artix = "wlroots"
+void = "wlroots"
+alpine = "wlroots"
+gentoo = "gui-libs/wlroots"
+devuan = "libwlroots11"
+
+[package."xwayland"]
+description = "X11 compatibility for Wayland"
+artix = "xorg-xwayland"
+void = "xorg-server-xwayland"
+alpine = "xwayland"
+gentoo = "x11-base/xwayland"
+devuan = "xwayland"
+
+[package."libinput"]
+description = "Input device library"
+artix = "libinput"
+void = "libinput"
+alpine = "libinput"
+gentoo = "dev-libs/libinput"
+devuan = "libinput10"
+
+[package."mesa"]
+description = "Open-source graphics drivers"
+artix = "mesa"
+void = "mesa-dri"
+alpine = "mesa-dri-gallium"
+gentoo = "media-libs/mesa"
+devuan = "mesa-utils"
+
+# =============================================================================
+# DISPLAY MANAGERS & GREETERS
+# =============================================================================
+
+[package."greetd"]
+description = "Minimal display manager"
+artix = "greetd"
+void = "greetd"
+alpine = "greetd"
+gentoo = "gui-apps/greetd"
+devuan = ""  # Not in repos
+
+[package."greetd-tuigreet"]
+description = "TUI greeter for greetd"
+artix = "greetd-tuigreet"
+void = "greetd-tuigreet"
+alpine = "greetd-tuigreet"
+gentoo = "gui-apps/tuigreet"
+devuan = ""
+
+[package."greetd-gtkgreet"]
+description = "GTK greeter for greetd"
+artix = "greetd-gtkgreet"
+void = ""
+alpine = ""
+gentoo = "gui-apps/gtkgreet"
+devuan = ""
+
+[package."greetd-regreet"]
+description = "GTK4 greeter for greetd"
+artix = "greetd-regreet"
+void = ""
+alpine = ""
+gentoo = ""
+devuan = ""
+
+[package."cage"]
+description = "Wayland kiosk compositor (for regreet)"
+artix = "cage"
+void = "cage"
+alpine = "cage"
+gentoo = "gui-wm/cage"
+devuan = ""
+
+[package."ly"]
+description = "TUI display manager"
+artix = "ly"
+void = "ly"
+alpine = ""
+gentoo = ""
+devuan = ""
+
+[package."ly-s6"]
+description = "ly s6 service scripts"
+artix = "ly-s6"
+void = ""
+alpine = ""
+gentoo = ""
+devuan = ""
+
+# =============================================================================
+# TERMINAL & APPLICATIONS
+# =============================================================================
+
+[package."kitty"]
+description = "GPU-accelerated terminal emulator"
+artix = "kitty"
+void = "kitty"
+alpine = "kitty"
+gentoo = "x11-terms/kitty"
+devuan = "kitty"
+
+[package."rofi-wayland"]
+description = "Wayland-native application launcher"
+artix = "rofi-wayland"
+void = "rofi-wayland"
+alpine = ""  # rofi-wayland not in stable
+gentoo = "x11-misc/rofi"
+devuan = "rofi"
+
+# =============================================================================
+# AUDIO
+# =============================================================================
+
+[package."pipewire"]
+description = "Modern audio/video server"
+artix = "pipewire"
+void = "pipewire"
+alpine = "pipewire"
+gentoo = "media-video/pipewire"
+devuan = "pipewire"
+
+[package."wireplumber"]
+description = "PipeWire session manager"
+artix = "wireplumber"
+void = "wireplumber"
+alpine = "wireplumber"
+gentoo = "media-video/wireplumber"
+devuan = "wireplumber"
+
+[package."pipewire-pulse"]
+description = "PipeWire PulseAudio compatibility"
+artix = "pipewire-pulse"
+void = ""  # Included in pipewire
+alpine = "pipewire-pulse"
+gentoo = "media-video/pipewire[sound-server]"
+devuan = "pipewire-pulse"
+
+[package."pipewire-alsa"]
+description = "PipeWire ALSA compatibility"
+artix = "pipewire-alsa"
+void = ""  # Included in pipewire
+alpine = "pipewire-alsa"
+gentoo = "media-video/pipewire[sound-server]"
+devuan = "pipewire-alsa"
+
+[package."pipewire-jack"]
+description = "PipeWire JACK compatibility"
+artix = "pipewire-jack"
+void = ""  # Included in pipewire
+alpine = "pipewire-jack"
+gentoo = "media-video/pipewire[jack-sdk]"
+devuan = "pipewire-jack"
+
+# =============================================================================
+# XDG DESKTOP PORTALS
+# =============================================================================
+
+[package."xdg-desktop-portal"]
+description = "Desktop integration portal backend"
+artix = "xdg-desktop-portal"
+void = "xdg-desktop-portal"
+alpine = "xdg-desktop-portal"
+gentoo = "sys-apps/xdg-desktop-portal"
+devuan = "xdg-desktop-portal"
+
+[package."xdg-desktop-portal-wlr"]
+description = "wlroots portal backend"
+artix = "xdg-desktop-portal-wlr"
+void = "xdg-desktop-portal-wlr"
+alpine = "xdg-desktop-portal-wlr"
+gentoo = "gui-libs/xdg-desktop-portal-wlr"
+devuan = ""
+
+[package."xdg-desktop-portal-gtk"]
+description = "GTK portal backend"
+artix = "xdg-desktop-portal-gtk"
+void = "xdg-desktop-portal-gtk"
+alpine = "xdg-desktop-portal-gtk"
+gentoo = "sys-apps/xdg-desktop-portal-gtk"
+devuan = "xdg-desktop-portal-gtk"
+
+[package."xdg-desktop-portal-kde"]
+description = "KDE portal backend"
+artix = "xdg-desktop-portal-kde"
+void = "xdg-desktop-portal-kde"
+alpine = ""
+gentoo = "kde-plasma/xdg-desktop-portal-kde"
+devuan = ""
+
+[package."xdg-utils"]
+description = "XDG utilities for desktop integration"
+artix = "xdg-utils"
+void = "xdg-utils"
+alpine = "xdg-utils"
+gentoo = "x11-misc/xdg-utils"
+devuan = "xdg-utils"
+
+# =============================================================================
+# FONTS
+# =============================================================================
+
+[package."font-hack"]
+description = "Hack monospace font"
+artix = "ttf-hack"
+void = "font-hack-ttf"
+alpine = "font-hack"
+gentoo = "media-fonts/hack"
+devuan = "fonts-hack"
+
+[package."font-noto"]
+description = "Noto fonts family"
+artix = "noto-fonts"
+void = "noto-fonts-ttf"
+alpine = "font-noto"
+gentoo = "media-fonts/noto"
+devuan = "fonts-noto"
+
+[package."font-noto-emoji"]
+description = "Noto Color Emoji font"
+artix = "noto-fonts-emoji"
+void = "noto-fonts-emoji"
+alpine = "font-noto-emoji"
+gentoo = "media-fonts/noto-emoji"
+devuan = "fonts-noto-color-emoji"
+
+# =============================================================================
+# GPU DRIVERS - NVIDIA
+# =============================================================================
+
+[package."nvidia"]
+description = "NVIDIA proprietary driver"
+artix = "nvidia"
+void = "nvidia"
+alpine = ""  # Not available
+gentoo = "x11-drivers/nvidia-drivers"
+devuan = "nvidia-driver"
+
+[package."nvidia-utils"]
+description = "NVIDIA userspace utilities"
+artix = "nvidia-utils"
+void = ""  # Included in nvidia
+alpine = ""
+gentoo = ""  # Included in nvidia-drivers
+devuan = ""  # Included in nvidia-driver
+
+[package."nvidia-prime"]
+description = "NVIDIA PRIME render offload"
+artix = "nvidia-prime"
+void = ""
+alpine = ""
+gentoo = ""
+devuan = "nvidia-prime"
+
+[package."lib32-nvidia-utils"]
+description = "NVIDIA 32-bit compatibility"
+artix = "lib32-nvidia-utils"
+void = ""
+alpine = ""
+gentoo = "x11-drivers/nvidia-drivers[abi_x86_32]"
+devuan = "nvidia-driver-libs:i386"
+
+# =============================================================================
+# GPU DRIVERS - AMD
+# =============================================================================
+
+[package."vulkan-radeon"]
+description = "AMD Vulkan driver (RADV)"
+artix = "vulkan-radeon"
+void = ""  # Included in mesa
+alpine = "mesa-vulkan-ati"
+gentoo = "media-libs/mesa[vulkan,video_cards_radeonsi]"
+devuan = "mesa-vulkan-drivers"
+
+[package."lib32-mesa"]
+description = "Mesa 32-bit compatibility"
+artix = "lib32-mesa"
+void = ""
+alpine = ""
+gentoo = "media-libs/mesa[abi_x86_32]"
+devuan = "libgl1-mesa-dri:i386"
+
+[package."lib32-vulkan-radeon"]
+description = "AMD Vulkan 32-bit compatibility"
+artix = "lib32-vulkan-radeon"
+void = ""
+alpine = ""
+gentoo = "media-libs/mesa[abi_x86_32,vulkan]"
+devuan = ""
+
+# =============================================================================
+# SYSTEM SERVICES
+# =============================================================================
+
+[package."seatd"]
+description = "Seat management daemon (minimal)"
+artix = "seatd"
+void = "seatd"
+alpine = "seatd"
+gentoo = "sys-auth/seatd"
+devuan = "seatd"
+
+[package."seatd-s6"]
+description = "seatd s6 service scripts"
+artix = "seatd-s6"
+void = ""
+alpine = ""
+gentoo = ""
+devuan = ""
+
+[package."elogind"]
+description = "Logind without systemd"
+artix = "elogind"
+void = ""
+alpine = "elogind"
+gentoo = "sys-auth/elogind"
+devuan = "elogind"
+
+[package."elogind-s6"]
+description = "elogind s6 service scripts"
+artix = "elogind-s6"
+void = ""
+alpine = ""
+gentoo = ""
+devuan = ""
+
+[package."dbus"]
+description = "D-Bus message bus system"
+artix = "dbus"
+void = "dbus"
+alpine = "dbus"
+gentoo = "sys-apps/dbus"
+devuan = "dbus"
+
+[package."dbus-s6"]
+description = "dbus s6 service scripts"
+artix = "dbus-s6"
+void = ""
+alpine = ""
+gentoo = ""
+devuan = ""
+
+[package."polkit"]
+description = "Authorization framework"
+artix = "polkit"
+void = "polkit"
+alpine = "polkit"
+gentoo = "sys-auth/polkit"
+devuan = "policykit-1"
+
+[package."pam_rundir"]
+description = "PAM module for XDG_RUNTIME_DIR"
+artix = "pam_rundir"
+void = "pam_rundir"
+alpine = ""  # Not in repos
+gentoo = ""  # Not in repos
+devuan = "libpam-rundir"
+
+# =============================================================================
+# NOTES
+# =============================================================================
+
+# Empty string ("") means package doesn't exist or isn't needed on that distro
+# Gentoo packages use "category/name" format
+# Some distros bundle packages differently (e.g., Void includes pipewire-pulse in pipewire)
+# Alpine uses different package names for some things (e.g., "font-" prefix vs "ttf-")
+# Devuan sometimes uses different names than Debian (e.g., "policykit-1" vs "polkit")

@@ -36,6 +36,7 @@ thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
+toml = "0.8"
 
 # HTTP client (for URL manifests)
 ureq = "2"
@@ -63,6 +64,9 @@ chrono = "0.4"
 
 # Unix utilities (for root check)
 nix = { version = "0.29", features = ["user"] }
+
+# Lazy static initialization
+once_cell = "1"
 
 [profile.release]
 lto = true
