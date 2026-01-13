@@ -65,6 +65,8 @@ pub struct PackageMapping {
     pub gentoo: String,
     #[serde(default)]
     pub devuan: String,
+    #[serde(default)]
+    pub slackware: String,
 }
 
 /// Global package database, parsed once at compile time (embedded) and first access (parsed)
@@ -93,6 +95,7 @@ impl PackageDatabase {
             "alpine" => &mapping.alpine,
             "gentoo" => &mapping.gentoo,
             "devuan" => &mapping.devuan,
+            "slackware" => &mapping.slackware,
             _ => return None,
         };
 

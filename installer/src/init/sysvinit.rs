@@ -29,6 +29,15 @@ impl SysVinit {
         }
     }
 
+    /// Create SysVinit configuration for Slackware
+    pub fn slackware() -> Self {
+        Self {
+            service_dir: "etc/rc.d",
+            runlevel_dirs: &["etc/rc.d"], // Slackware uses BSD-style rc.d
+            user_service_dir: ".config/init/sv",
+        }
+    }
+
     /// Generate a SysVinit service script
     fn generate_service_script(&self, spec: &ServiceSpec) -> String {
         let description = format!("mkOS service for {}", spec.name);

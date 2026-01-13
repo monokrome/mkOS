@@ -1,5 +1,6 @@
 mod artix;
 pub mod packages;
+mod slackware;
 mod void;
 
 pub use packages::*;
@@ -70,6 +71,7 @@ pub enum DistroKind {
     #[default]
     Artix,
     Void,
+    Slackware,
 }
 
 impl DistroKind {
@@ -77,6 +79,7 @@ impl DistroKind {
         match self {
             DistroKind::Artix => Box::new(artix::Artix::default()),
             DistroKind::Void => Box::new(void::Void::default()),
+            DistroKind::Slackware => Box::new(slackware::Slackware::default()),
         }
     }
 }
