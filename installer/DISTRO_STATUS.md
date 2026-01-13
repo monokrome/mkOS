@@ -203,9 +203,47 @@ If you test Void or Gentoo and encounter issues:
 
 ---
 
+## Interactive Mode (No Manifest)
+
+The installer now **auto-detects** which distribution it's running on! Simply run:
+
+```bash
+sudo mkos-install
+```
+
+The installer will:
+1. Detect the current distro from the live environment
+2. Prompt for device selection
+3. Prompt for hostname, timezone, passwords, etc.
+4. Install that distribution with mkOS configuration
+
+**Supported detection:**
+- ✅ Artix (checks `/etc/artix-release`)
+- ✅ Void (checks `/etc/void-release`)
+- ✅ Gentoo (checks `/etc/gentoo-release`)
+- ✅ Alpine (checks `/etc/alpine-release`)
+- ✅ Slackware (checks `/etc/slackware-version`)
+- ✅ Devuan (checks `/etc/devuan_version`)
+
+**Fallback:** If detection fails, you'll be prompted to select from the list of 6 distros.
+
 ## Example Workflows
 
-### Void Linux Install:
+### Void Linux Install (Interactive - EASIEST):
+```bash
+# 1. Boot Void live ISO
+# 2. Build installer
+git clone https://github.com/monokrome/mkOS.git && cd mkOS/installer
+cargo build --release
+sudo cp target/release/mkos-install /usr/local/bin/
+
+# 3. Just run it - auto-detects Void!
+sudo mkos-install
+
+# Answer prompts and you're done!
+```
+
+### Void Linux Install (With Manifest):
 ```bash
 # 1. Boot Void live ISO
 # 2. Build installer
