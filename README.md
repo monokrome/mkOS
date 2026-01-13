@@ -6,29 +6,44 @@ A declarative installer and configuration tool that sets up secure, reproducible
 
 ## Features
 
-- **Automated Installation**: Partitions, encrypts, and installs your choice of Linux base system with a single command
+- **Automated Installation**: Partitions, encrypts, and installs your choice of Linux distribution with a single command
+- **Multi-Distribution Support**: Supports 6 non-systemd Linux distributions:
+  - **Artix Linux** (s6/runit/OpenRC) - Production ready
+  - **Void Linux** (runit) - Fully functional
+  - **Gentoo Linux** (OpenRC) - Automatic stage3 download
+  - **Alpine Linux** (OpenRC) - Backend complete
+  - **Slackware Linux** (SysVinit) - Backend complete
+  - **Devuan GNU+Linux** (SysVinit) - Backend complete
+- **Auto-Detection**: Automatically detects which distribution you're running from the live environment
+- **Interactive Mode**: No manifest file required - just run the installer and answer prompts
 - **LUKS2 Encryption**: Full disk encryption with Argon2id key derivation configured automatically
 - **Btrfs Layout**: Proper subvolume structure for root, home, snapshots, and swap isolation
 - **EFISTUB Boot**: Direct kernel boot from UEFI - no bootloader complexity or attack surface
 - **Declarative Config**: Define your system in a manifest file for reproducible installations
 - **Snapshot Support**: Automatic pre-upgrade snapshots with proper swap isolation via @swap subvolume
-- **Multiple Bases**: Currently supports Artix Linux (more distributions coming soon)
 
 ## Quick Start
 
 ### Fresh Installation
 
-Boot into a live environment and run:
+Boot into any supported live environment (Artix, Void, Gentoo, Alpine, Slackware, or Devuan) and run:
 
 ```bash
 curl -sL https://mkos.cc/install | sh
 ```
 
-Or use a manifest file:
+The installer will:
+- Auto-detect which distribution you're installing
+- Prompt for device selection and configuration interactively
+- Automatically handle distribution-specific setup (e.g., Gentoo stage3 download)
+
+Alternatively, use a manifest file for declarative, reproducible installations:
 
 ```bash
 mkos-install manifest.yaml
 ```
+
+See `examples/` for sample manifests for each supported distribution.
 
 ### Managing Existing Systems
 
@@ -90,8 +105,12 @@ A properly partitioned, encrypted system with snapshot support, configured to bo
 
 See the `examples/` directory for sample manifests:
 
-- `examples/desktop.yaml` - Desktop workstation with Wayland support
-- `examples/minimal.json` - Minimal server installation
+- `examples/desktop.yaml` - Desktop workstation with Wayland support (Artix)
+- `examples/minimal.json` - Minimal server installation (Artix)
+- `examples/void-minimal.yml` - Void Linux minimal installation
+- `examples/gentoo-minimal.yml` - Gentoo Linux with automatic stage3 download
+
+Each manifest shows distribution-specific configuration options and available features.
 
 ## Commands Reference
 

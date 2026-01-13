@@ -1,0 +1,71 @@
+# Gentoo Linux minimal installation manifest
+# Usage: sudo mkos-install gentoo-minimal.yml
+#
+# The installer now AUTOMATICALLY downloads and extracts stage3!
+# You will be prompted to select:
+#   - Architecture (auto-detected)
+#   - Stage3 variant (openrc, hardened, musl, etc.)
+#
+# The installer will then:
+#   - Download the latest stage3 tarball from Gentoo mirrors
+#   - Extract it to /mnt with proper permissions
+#   - Install kernel and configure the system
+#
+# No manual stage3 download required!
+
+# Distribution selection
+distro: gentoo
+
+# Disk configuration
+disk:
+  # device: /dev/nvme0n1  # Uncomment and specify your device
+  encryption: true
+
+# System configuration
+system:
+  hostname: gentoo-box
+  timezone: America/New_York  # Change to your timezone
+  locale: en_US.UTF-8
+  keymap: us
+
+# Swap configuration
+swap:
+  zram: true
+  zram_size: 8  # GB
+  swappiness: 20
+
+# Network configuration
+network:
+  mdns: true
+  ssh:
+    enabled: false
+
+# Services to enable (OpenRC)
+services:
+  enable:
+    - dhcpcd
+
+# Desktop environment (optional - comment out for server install)
+desktop:
+  enabled: false
+  # Uncomment for desktop:
+  # enabled: true
+  # seat_manager: seatd
+  # display_manager: greetd
+  # greeter: tuigreet
+  # user_services: true
+  # portals: true
+  # portal_backends:
+  #   - wlr
+
+# Audio (optional)
+audio:
+  enabled: false
+  # Uncomment for audio:
+  # enabled: true
+  # pulseaudio_compat: true
+  # alsa_compat: true
+
+# Firewall (optional)
+firewall:
+  enabled: false
