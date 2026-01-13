@@ -186,11 +186,16 @@ install_items+=" /etc/crypttab "
                 "ukify",
                 [
                     "build",
-                    "--linux", &vmlinuz.to_string_lossy(),
-                    "--initrd", &initramfs.to_string_lossy(),
-                    "--cmdline", &cmdline,
-                    "--os-release", &format!("@{}", osrel.display()),
-                    "--output", &uki_full_path.to_string_lossy(),
+                    "--linux",
+                    &vmlinuz.to_string_lossy(),
+                    "--initrd",
+                    &initramfs.to_string_lossy(),
+                    "--cmdline",
+                    &cmdline,
+                    "--os-release",
+                    &format!("@{}", osrel.display()),
+                    "--output",
+                    &uki_full_path.to_string_lossy(),
                 ],
             )?;
         } else {

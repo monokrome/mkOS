@@ -39,7 +39,10 @@ impl Default for Gentoo {
 
         // Wayland
         package_map.insert("wayland".into(), "dev-libs/wayland".into());
-        package_map.insert("wayland-protocols".into(), "dev-libs/wayland-protocols".into());
+        package_map.insert(
+            "wayland-protocols".into(),
+            "dev-libs/wayland-protocols".into(),
+        );
         package_map.insert("wlroots".into(), "gui-libs/wlroots".into());
         package_map.insert("xwayland".into(), "x11-base/xwayland".into());
         package_map.insert("libinput".into(), "dev-libs/libinput".into());
@@ -62,10 +65,22 @@ impl Default for Gentoo {
         package_map.insert("font-noto-emoji".into(), "media-fonts/noto-emoji".into());
 
         // XDG portals
-        package_map.insert("xdg-desktop-portal".into(), "sys-apps/xdg-desktop-portal".into());
-        package_map.insert("xdg-desktop-portal-wlr".into(), "gui-libs/xdg-desktop-portal-wlr".into());
-        package_map.insert("xdg-desktop-portal-gtk".into(), "sys-apps/xdg-desktop-portal-gtk".into());
-        package_map.insert("xdg-desktop-portal-kde".into(), "kde-plasma/xdg-desktop-portal-kde".into());
+        package_map.insert(
+            "xdg-desktop-portal".into(),
+            "sys-apps/xdg-desktop-portal".into(),
+        );
+        package_map.insert(
+            "xdg-desktop-portal-wlr".into(),
+            "gui-libs/xdg-desktop-portal-wlr".into(),
+        );
+        package_map.insert(
+            "xdg-desktop-portal-gtk".into(),
+            "sys-apps/xdg-desktop-portal-gtk".into(),
+        );
+        package_map.insert(
+            "xdg-desktop-portal-kde".into(),
+            "kde-plasma/xdg-desktop-portal-kde".into(),
+        );
         package_map.insert("xdg-utils".into(), "x11-misc/xdg-utils".into());
 
         // GPU drivers
@@ -376,9 +391,10 @@ fn download_and_extract_stage3(root: &Path) -> Result<()> {
 
     let status = Command::new("curl")
         .args([
-            "-L",          // Follow redirects
-            "--progress-bar",  // Show progress
-            "-o", &tmp_path,   // Output file
+            "-L",             // Follow redirects
+            "--progress-bar", // Show progress
+            "-o",
+            &tmp_path, // Output file
             &stage3_url,
         ])
         .status()

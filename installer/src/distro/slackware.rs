@@ -82,7 +82,10 @@ impl Slackware {
         // XDG portals
         package_map.insert("xdg-desktop-portal".into(), "xdg-desktop-portal".into());
         package_map.insert("xdg-desktop-portal-wlr".into(), "".into());
-        package_map.insert("xdg-desktop-portal-gtk".into(), "xdg-desktop-portal-gtk".into());
+        package_map.insert(
+            "xdg-desktop-portal-gtk".into(),
+            "xdg-desktop-portal-gtk".into(),
+        );
         package_map.insert("xdg-utils".into(), "xdg-utils".into());
 
         // GPU drivers
@@ -162,13 +165,15 @@ impl Distro for Slackware {
     }
 
     fn map_package(&self, generic: &str) -> Option<String> {
-        self.package_map.get(generic).cloned().and_then(|s| {
-            if s.is_empty() {
-                None
-            } else {
-                Some(s)
-            }
-        })
+        self.package_map.get(generic).cloned().and_then(
+            |s| {
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            },
+        )
     }
 
     fn map_service(&self, generic: &str) -> String {
@@ -202,7 +207,10 @@ impl Distro for Slackware {
         match self.pkg_manager {
             SlackwarePkgManager::Slackpkg => {
                 cmd::run("slackpkg", ["update"])?;
-                cmd::run("slackpkg", ["upgrade-all", "-default_answer=y", "-batch=on"])
+                cmd::run(
+                    "slackpkg",
+                    ["upgrade-all", "-default_answer=y", "-batch=on"],
+                )
             }
             SlackwarePkgManager::SlaptGet => {
                 cmd::run("slapt-get", ["--update"])?;
@@ -276,10 +284,7 @@ impl Distro for Slackware {
     ) -> Result<()> {
         // Most display managers aren't in Slackware repos
         // Would need SlackBuilds
-        println!(
-            "Note: {} may need to be installed from SlackBuilds.org",
-            dm
-        );
+        println!("Note: {} may need to be installed from SlackBuilds.org", dm);
 
         if let Some(g) = greeter {
             println!(
@@ -376,9 +381,7 @@ exec /usr/local/bin/mkos-rebuild-uki
         crate::hooks::install_uki_rebuild_script(target)?;
 
         println!("✓ Installed kernel hook for Slackware");
-        println!(
-            "  Note: You'll need to manually run this after kernel upgrades"
-        );
+        println!("  Note: You'll need to manually run this after kernel upgrades");
 
         Ok(())
     }

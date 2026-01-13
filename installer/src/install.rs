@@ -439,7 +439,7 @@ impl Installer {
     }
 
     fn setup_secureboot(&self, uki_name: &str) -> Result<()> {
-        use crate::uki::{generate_keys, sign_efi_binary, enroll_keys, SecureBootKeys, KeyPair};
+        use crate::uki::{enroll_keys, generate_keys, sign_efi_binary, KeyPair, SecureBootKeys};
 
         println!("  Setting up Secure Boot...");
 
@@ -453,7 +453,9 @@ impl Installer {
             let keys_dir = self.target.join("root/.secureboot-keys");
             let _keys = generate_keys(&keys_dir)?;
             println!("    ✓ Keys generated in: {}", keys_dir.display());
-            println!("    IMPORTANT: Back up these keys! They are stored in /root/.secureboot-keys");
+            println!(
+                "    IMPORTANT: Back up these keys! They are stored in /root/.secureboot-keys"
+            );
             keys_dir
         };
 

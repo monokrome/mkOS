@@ -63,7 +63,10 @@ impl Default for Devuan {
 
         // XDG portals
         package_map.insert("xdg-desktop-portal".into(), "xdg-desktop-portal".into());
-        package_map.insert("xdg-desktop-portal-gtk".into(), "xdg-desktop-portal-gtk".into());
+        package_map.insert(
+            "xdg-desktop-portal-gtk".into(),
+            "xdg-desktop-portal-gtk".into(),
+        );
         package_map.insert("xdg-utils".into(), "xdg-utils".into());
 
         // GPU drivers
@@ -177,7 +180,10 @@ iface eth0 inet dhcp
 
         // SysVinit services are managed via update-rc.d
         let root_str = root.to_string_lossy();
-        cmd::run("chroot", [&root_str, "update-rc.d", seat_manager, "defaults"])
+        cmd::run(
+            "chroot",
+            [&root_str, "update-rc.d", seat_manager, "defaults"],
+        )
     }
 
     fn install_display_manager(

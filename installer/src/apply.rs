@@ -232,7 +232,9 @@ fn get_installed_packages(distro: &dyn distro::Distro) -> Result<HashSet<String>
         "xbps-install" => Command::new("xbps-query").args(["-l"]).output(),
         "apk" => Command::new("apk").args(["list", "--installed"]).output(),
         "emerge" => Command::new("qlist").args(["-I"]).output(),
-        "apt" => Command::new("dpkg-query").args(["-W", "-f=${Package}\n"]).output(),
+        "apt" => Command::new("dpkg-query")
+            .args(["-W", "-f=${Package}\n"])
+            .output(),
         "slackpkg" | "slapt-get" => {
             // List installed packages from /var/log/packages
             if let Ok(entries) = fs::read_dir("/var/log/packages") {

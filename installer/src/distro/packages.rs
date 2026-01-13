@@ -126,11 +126,26 @@ mod tests {
     fn test_map_linux_kernel() {
         let db = PackageDatabase::global();
 
-        assert_eq!(db.map_for_distro("linux-kernel", "artix"), Some("linux".into()));
-        assert_eq!(db.map_for_distro("linux-kernel", "void"), Some("linux".into()));
-        assert_eq!(db.map_for_distro("linux-kernel", "alpine"), Some("linux-lts".into()));
-        assert_eq!(db.map_for_distro("linux-kernel", "gentoo"), Some("sys-kernel/gentoo-kernel-bin".into()));
-        assert_eq!(db.map_for_distro("linux-kernel", "devuan"), Some("linux-image-amd64".into()));
+        assert_eq!(
+            db.map_for_distro("linux-kernel", "artix"),
+            Some("linux".into())
+        );
+        assert_eq!(
+            db.map_for_distro("linux-kernel", "void"),
+            Some("linux".into())
+        );
+        assert_eq!(
+            db.map_for_distro("linux-kernel", "alpine"),
+            Some("linux-lts".into())
+        );
+        assert_eq!(
+            db.map_for_distro("linux-kernel", "gentoo"),
+            Some("sys-kernel/gentoo-kernel-bin".into())
+        );
+        assert_eq!(
+            db.map_for_distro("linux-kernel", "devuan"),
+            Some("linux-image-amd64".into())
+        );
     }
 
     #[test]
@@ -138,9 +153,18 @@ mod tests {
         let db = PackageDatabase::global();
 
         // This is an important test - Alpine uses a different name
-        assert_eq!(db.map_for_distro("nss-mdns", "artix"), Some("nss-mdns".into()));
-        assert_eq!(db.map_for_distro("nss-mdns", "alpine"), Some("avahi-nss-mdns".into()));
-        assert_eq!(db.map_for_distro("nss-mdns", "devuan"), Some("libnss-mdns".into()));
+        assert_eq!(
+            db.map_for_distro("nss-mdns", "artix"),
+            Some("nss-mdns".into())
+        );
+        assert_eq!(
+            db.map_for_distro("nss-mdns", "alpine"),
+            Some("avahi-nss-mdns".into())
+        );
+        assert_eq!(
+            db.map_for_distro("nss-mdns", "devuan"),
+            Some("libnss-mdns".into())
+        );
     }
 
     #[test]
@@ -156,7 +180,10 @@ mod tests {
         let db = PackageDatabase::global();
 
         // Void bundles pipewire-pulse into pipewire
-        assert_eq!(db.map_for_distro("pipewire-pulse", "artix"), Some("pipewire-pulse".into()));
+        assert_eq!(
+            db.map_for_distro("pipewire-pulse", "artix"),
+            Some("pipewire-pulse".into())
+        );
         assert_eq!(db.map_for_distro("pipewire-pulse", "void"), None);
     }
 }

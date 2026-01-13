@@ -648,12 +648,13 @@ fn prompt_microcode() -> Result<bool> {
     let vendor = detect_cpu_vendor();
 
     match vendor {
-        CpuVendor::Intel | CpuVendor::Amd => {
-            prompt_yes_no(
-                &format!("Install {} microcode updates (CPU security fixes, proprietary)", vendor.name()),
-                false
-            )
-        }
+        CpuVendor::Intel | CpuVendor::Amd => prompt_yes_no(
+            &format!(
+                "Install {} microcode updates (CPU security fixes, proprietary)",
+                vendor.name()
+            ),
+            false,
+        ),
         CpuVendor::Unknown => Ok(false),
     }
 }

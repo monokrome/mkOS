@@ -64,8 +64,14 @@ impl Default for Alpine {
 
         // XDG portals
         package_map.insert("xdg-desktop-portal".into(), "xdg-desktop-portal".into());
-        package_map.insert("xdg-desktop-portal-wlr".into(), "xdg-desktop-portal-wlr".into());
-        package_map.insert("xdg-desktop-portal-gtk".into(), "xdg-desktop-portal-gtk".into());
+        package_map.insert(
+            "xdg-desktop-portal-wlr".into(),
+            "xdg-desktop-portal-wlr".into(),
+        );
+        package_map.insert(
+            "xdg-desktop-portal-gtk".into(),
+            "xdg-desktop-portal-gtk".into(),
+        );
         package_map.insert("xdg-utils".into(), "xdg-utils".into());
 
         // Network services

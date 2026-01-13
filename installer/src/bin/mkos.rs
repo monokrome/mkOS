@@ -350,7 +350,9 @@ fn rollback() -> Result<()> {
         .output()
         .context("Failed to find root device")?;
 
-    let root_source = String::from_utf8_lossy(&findmnt_output.stdout).trim().to_string();
+    let root_source = String::from_utf8_lossy(&findmnt_output.stdout)
+        .trim()
+        .to_string();
 
     // Extract subvolume from source (e.g., /dev/mapper/cryptroot[@snapshots/pre-upgrade-2026-01-12T...])
     let current_subvol = if let Some(bracket_pos) = root_source.find('[') {
@@ -381,7 +383,9 @@ fn rollback() -> Result<()> {
         eprintln!("Error: You are not booted from a snapshot!");
         eprintln!("Current subvolume: {}", current_subvol);
         eprintln!("\nRollback is only available when booted to a fallback snapshot.");
-        eprintln!("If your main system is broken, reboot and select 'mkOS (fallback)' from boot menu.");
+        eprintln!(
+            "If your main system is broken, reboot and select 'mkOS (fallback)' from boot menu."
+        );
         std::process::exit(1);
     }
 
@@ -422,7 +426,12 @@ fn rollback() -> Result<()> {
     // Mount btrfs root
     println!("Mounting btrfs root...");
     let mount_status = Command::new("mount")
-        .args(["-o", "subvolid=5", &root_device, temp_mount.to_str().unwrap()])
+        .args([
+            "-o",
+            "subvolid=5",
+            &root_device,
+            temp_mount.to_str().unwrap(),
+        ])
         .status()
         .context("Failed to mount btrfs root")?;
 
