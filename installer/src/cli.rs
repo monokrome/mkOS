@@ -71,7 +71,7 @@ pub fn run() -> Result<()> {
     println!("This will install mkOS with:");
     println!("  - LUKS2 encryption (Argon2id)");
     println!("  - btrfs with subvolumes");
-    println!("  - Artix Linux (s6 init)");
+    println!("  - Your choice of distribution");
     println!("  - EFISTUB boot\n");
 
     // Load manifest
@@ -191,7 +191,14 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
     let distro = match manifest.distro.as_str() {
         "artix" => DistroKind::Artix,
         "void" => DistroKind::Void,
-        other => bail!("Unknown distro: {}. Supported: artix, void", other),
+        "slackware" => DistroKind::Slackware,
+        "alpine" => DistroKind::Alpine,
+        "gentoo" => DistroKind::Gentoo,
+        "devuan" => DistroKind::Devuan,
+        other => bail!(
+            "Unknown distro: {}. Supported: artix, void, slackware, alpine, gentoo, devuan",
+            other
+        ),
     };
 
     // Enable networking - check if any networking services are requested

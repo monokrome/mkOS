@@ -72,24 +72,51 @@ pub fn run(source: ManifestSource) -> Result<()> {
 }
 
 fn detect_distro() -> Result<DistroKind> {
+    // Check distro-specific files
     if Path::new("/etc/artix-release").exists() {
         return Ok(DistroKind::Artix);
     }
     if Path::new("/etc/void-release").exists() {
         return Ok(DistroKind::Void);
     }
+    if Path::new("/etc/slackware-version").exists() {
+        return Ok(DistroKind::Slackware);
+    }
+    if Path::new("/etc/alpine-release").exists() {
+        return Ok(DistroKind::Alpine);
+    }
+    if Path::new("/etc/gentoo-release").exists() {
+        return Ok(DistroKind::Gentoo);
+    }
+    if Path::new("/etc/devuan_version").exists() {
+        return Ok(DistroKind::Devuan);
+    }
 
     // Check /etc/os-release
     if let Ok(content) = fs::read_to_string("/etc/os-release") {
-        if content.contains("artix") || content.contains("Artix") {
+        let content_lower = content.to_lowercase();
+
+        if content_lower.contains("artix") {
             return Ok(DistroKind::Artix);
         }
-        if content.contains("void") || content.contains("Void") {
+        if content_lower.contains("void") {
             return Ok(DistroKind::Void);
+        }
+        if content_lower.contains("slackware") {
+            return Ok(DistroKind::Slackware);
+        }
+        if content_lower.contains("alpine") {
+            return Ok(DistroKind::Alpine);
+        }
+        if content_lower.contains("gentoo") {
+            return Ok(DistroKind::Gentoo);
+        }
+        if content_lower.contains("devuan") {
+            return Ok(DistroKind::Devuan);
         }
     }
 
-    bail!("Could not detect distro. Supported: Artix, Void");
+    bail!("Could not detect distro. Supported: Artix, Void, Slackware, Alpine, Gentoo, Devuan");
 }
 
 fn apply_system_config(manifest: &Manifest) -> Result<()> {
@@ -203,15 +230,53 @@ fn get_installed_packages(distro: &dyn distro::Distro) -> Result<HashSet<String>
     let output = match distro.pkg_manager() {
         "pacman" => Command::new("pacman").args(["-Qq"]).output(),
         "xbps-install" => Command::new("xbps-query").args(["-l"]).output(),
+        "apk" => Command::new("apk").args(["list", "--installed"]).output(),
+        "emerge" => Command::new("qlist").args(["-I"]).output(),
+        "apt" => Command::new("dpkg-query").args(["-W", "-f=${Package}\n"]).output(),
+        "slackpkg" | "slapt-get" => {
+            // List installed packages from /var/log/packages
+            if let Ok(entries) = fs::read_dir("/var/log/packages") {
+                for entry in entries.flatten() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        // Package format: name-version-arch-build
+                        // Extract just the package name
+                        if let Some(pkg) = name.split('-').next() {
+                            installed.insert(pkg.to_string());
+                        }
+                    }
+                }
+            }
+            return Ok(installed);
+        }
         _ => return Ok(installed),
     };
 
     if let Ok(output) = output {
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
-            // xbps-query output: "ii package-1.0_1  description"
-            // pacman output: "package"
+            // Different output formats per package manager:
+            // pacman: "package"
+            // xbps-query: "ii package-1.0_1  description"
+            // apk: "package-version arch {description}"
+            // emerge/qlist: "category/package-version"
+            // dpkg-query: "package"
             let pkg = line.split_whitespace().next().unwrap_or("");
+
+            // For apk, extract package name before version
+            let pkg = if distro.pkg_manager() == "apk" {
+                pkg.split('-').next().unwrap_or(pkg)
+            } else if distro.pkg_manager() == "emerge" {
+                // For Gentoo, extract package name from category/package-version
+                if let Some(slash_pos) = pkg.find('/') {
+                    let after_slash = &pkg[slash_pos + 1..];
+                    after_slash.split('-').next().unwrap_or(after_slash)
+                } else {
+                    pkg
+                }
+            } else {
+                pkg
+            };
+
             if !pkg.is_empty() {
                 installed.insert(pkg.to_string());
             }
