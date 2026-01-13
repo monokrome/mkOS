@@ -181,65 +181,22 @@ impl InitSystem for OpenRC {
     }
 
     fn user_service_dir(&self) -> &str {
-        self.user_service_dir
+        // OpenRC doesn't support user services
+        // Use a separate init system (runit, s6) for user services
+        ""
     }
 
-    fn setup_user_services(&self, root: &Path) -> Result<()> {
-        let skel_sv = root.join("etc/skel").join(self.user_service_dir);
-        fs::create_dir_all(&skel_sv)
-            .context("Failed to create user service skeleton directory")?;
-
-        // OpenRC doesn't have native user service support, so we create a simple wrapper
-        // Users can manage their own services using a personal runsvdir or similar
-        let readme = "# User Services\n\n\
-            OpenRC does not have built-in user service support.\n\
-            This directory is provided for compatibility with mkOS manifests.\n\n\
-            To run user services, consider using:\n\
-            - runit's runsvdir in your session startup\n\
-            - s6-rc as a user\n\
-            - supervise-daemon (OpenRC's supervisor)\n";
-
-        fs::write(skel_sv.join("README.md"), readme)?;
-
+    fn setup_user_services(&self, _root: &Path) -> Result<()> {
+        // OpenRC doesn't support user services - this is a no-op
+        // User services should be handled by a separate init system (runit, s6)
         Ok(())
     }
 
-    fn create_user_service(&self, root: &Path, spec: &ServiceSpec) -> Result<()> {
-        let skel_sv = root.join("etc/skel").join(self.user_service_dir);
-        let service_dir = skel_sv.join(&spec.name);
-        fs::create_dir_all(&service_dir)?;
-
-        // Create a simple run script that can be used with runsvdir
-        let mut run_script = String::from("#!/bin/sh\n");
-
-        if let Some(wait_path) = &spec.wait_for {
-            run_script.push_str(&format!(
-                "# Wait for {}\nwhile [ ! -e \"{}\" ]; do sleep 0.1; done\n\n",
-                wait_path, wait_path
-            ));
-        }
-
-        for (key, value) in &spec.environment {
-            run_script.push_str(&format!("export {}=\"{}\"\n", key, value));
-        }
-
-        if !spec.environment.is_empty() {
-            run_script.push('\n');
-        }
-
-        run_script.push_str(&format!("exec {}\n", spec.command));
-
-        let run_path = service_dir.join("run");
-        fs::write(&run_path, run_script)?;
-
-        let mut perms = fs::metadata(&run_path)?.permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&run_path, perms)?;
-
-        if spec.service_type == ServiceType::Oneshot {
-            fs::write(service_dir.join("type"), "oneshot\n")?;
-        }
-
-        Ok(())
+    fn create_user_service(&self, _root: &Path, _spec: &ServiceSpec) -> Result<()> {
+        // OpenRC doesn't support user services
+        // Use a separate init system (runit, s6) for user services
+        anyhow::bail!(
+            "OpenRC does not support user services. Use runit or s6 for user service management."
+        )
     }
 }

@@ -270,66 +270,22 @@ impl InitSystem for SysVinit {
     }
 
     fn user_service_dir(&self) -> &str {
-        self.user_service_dir
+        // SysVinit doesn't support user services
+        // Use a separate init system (runit, s6) for user services
+        ""
     }
 
-    fn setup_user_services(&self, root: &Path) -> Result<()> {
-        let skel_sv = root.join("etc/skel").join(self.user_service_dir);
-        fs::create_dir_all(&skel_sv)
-            .context("Failed to create user service skeleton directory")?;
-
-        // SysVinit doesn't have user service support, provide guidance
-        let readme = "# User Services\n\n\
-            SysVinit does not have built-in user service support.\n\
-            This directory is provided for compatibility with mkOS manifests.\n\n\
-            To run user services, consider using:\n\
-            - runit's runsvdir in your session startup\n\
-            - s6 as a user\n\
-            - Add commands to your shell profile (~/.profile)\n\
-            - Use systemd --user (if migrating to a systemd distro later)\n";
-
-        fs::write(skel_sv.join("README.md"), readme)?;
-
+    fn setup_user_services(&self, _root: &Path) -> Result<()> {
+        // SysVinit doesn't support user services - this is a no-op
+        // User services should be handled by a separate init system (runit, s6)
         Ok(())
     }
 
-    fn create_user_service(&self, root: &Path, spec: &ServiceSpec) -> Result<()> {
-        let skel_sv = root.join("etc/skel").join(self.user_service_dir);
-        let service_dir = skel_sv.join(&spec.name);
-        fs::create_dir_all(&service_dir)?;
-
-        // Create a simple shell script wrapper that can be sourced
-        let mut script = String::from("#!/bin/sh\n");
-
-        if let Some(wait_path) = &spec.wait_for {
-            script.push_str(&format!(
-                "# Wait for {}\nwhile [ ! -e \"{}\" ]; do sleep 0.1; done\n\n",
-                wait_path, wait_path
-            ));
-        }
-
-        for (key, value) in &spec.environment {
-            script.push_str(&format!("export {}=\"{}\"\n", key, value));
-        }
-
-        if !spec.environment.is_empty() {
-            script.push('\n');
-        }
-
-        script.push_str(&format!("{} &\n", spec.command));
-        script.push_str(&format!("echo $! > ~/.{}.pid\n", spec.name));
-
-        let script_path = service_dir.join("run.sh");
-        fs::write(&script_path, script)?;
-
-        let mut perms = fs::metadata(&script_path)?.permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&script_path, perms)?;
-
-        if spec.service_type == ServiceType::Oneshot {
-            fs::write(service_dir.join("type"), "oneshot\n")?;
-        }
-
-        Ok(())
+    fn create_user_service(&self, _root: &Path, _spec: &ServiceSpec) -> Result<()> {
+        // SysVinit doesn't support user services
+        // Use a separate init system (runit, s6) for user services
+        anyhow::bail!(
+            "SysVinit does not support user services. Use runit or s6 for user service management."
+        )
     }
 }
