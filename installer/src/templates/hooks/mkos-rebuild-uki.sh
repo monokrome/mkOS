@@ -5,29 +5,44 @@
 set -e
 
 echo "==> Detecting kernel version..."
-KVER=$(ls /lib/modules | head -n1)
+KVER=$(ls /lib/modules | sort -V | tail -n1)
 
 if [ -z "$KVER" ]; then
     echo "ERROR: No kernel found in /lib/modules"
     exit 1
 fi
 
-echo "==> Preserving current kernel for fallback..."
-# Preserve BEFORE we build new initramfs (which overwrites /boot/initramfs.img)
-if [ -f /boot/vmlinuz-linux ] && [ -f /boot/initramfs.img ]; then
-    cp /boot/vmlinuz-linux /boot/vmlinuz-fallback
-    cp /boot/initramfs.img /boot/initramfs-fallback.img
-    echo "✓ Current kernel preserved for fallback"
-else
-    echo "  No current kernel found (this is normal on fresh install)"
+UKI_NAME="mkos-$KVER.efi"
+
+# Read boot configuration
+LUKS_UUID=$(awk '/^cryptroot/ {print $2}' /etc/crypttab | sed 's/UUID=//')
+if [ -z "$LUKS_UUID" ]; then
+    echo "ERROR: Could not find LUKS UUID in /etc/crypttab"
+    exit 1
+fi
+ROOT_DEVICE="/dev/mapper/$(awk '/^cryptroot/ {print $1}' /etc/crypttab | head -n1)"
+
+# Find latest pre-upgrade snapshot for fallback
+FALLBACK_SNAPSHOT=$(ls -t /.snapshots 2>/dev/null | grep "pre-upgrade" | head -n1)
+if [ -n "$FALLBACK_SNAPSHOT" ]; then
+    echo "==> Found pre-upgrade snapshot: $FALLBACK_SNAPSHOT"
+fi
+
+# Preserve current kernel/initramfs BEFORE rebuilding (for fallback UKI)
+FALLBACK_UKI_NAME=""
+if [ -f /boot/vmlinuz-linux ] && [ -f /boot/initramfs.img ] && [ -n "$FALLBACK_SNAPSHOT" ]; then
+    # Get the kernel version from the current vmlinuz
+    OLD_KVER=$(file /boot/vmlinuz-linux 2>/dev/null | grep -oP 'version \K[^ ]+' || basename "$(ls -t /boot/mkos-*.efi 2>/dev/null | head -1 | sed 's/mkos-\(.*\)\.efi/\1/')" 2>/dev/null)
+
+    if [ -n "$OLD_KVER" ] && [ "$OLD_KVER" != "$KVER" ]; then
+        echo "==> Preserving current kernel ($OLD_KVER) for fallback..."
+        cp /boot/vmlinuz-linux /boot/vmlinuz-fallback
+        cp /boot/initramfs.img /boot/initramfs-fallback.img
+        FALLBACK_UKI_NAME="mkos-fallback-$OLD_KVER.efi"
+    fi
 fi
 
 echo "==> Building initramfs for kernel $KVER..."
-# Use --hostonly for optimized initramfs on real system
-# Force-add modules that return 255 when not detected:
-#   - dm: device mapper (check() always returns 255)
-#   - crypt: LUKS encryption (mkOS always uses LUKS)
-#   - btrfs: btrfs filesystem (mkOS always uses btrfs)
 dracut --force --hostonly --kver "$KVER" \
     --force-add "dm crypt btrfs" \
     --add-drivers "dm_mod dm_crypt" \
@@ -35,176 +50,133 @@ dracut --force --hostonly --kver "$KVER" \
 
 echo "==> Verifying critical modules are present..."
 if ! lsinitrd /boot/initramfs.img | grep -qE "dm[-_]mod\.ko"; then
-    echo "ERROR: dm_mod/dm-mod module not found in initramfs!"
-    echo "This will cause boot failure. Rebuild failed."
+    echo "ERROR: dm_mod not found in initramfs!"
     exit 1
 fi
-
 if ! lsinitrd /boot/initramfs.img | grep -qE "dm[-_]crypt\.ko"; then
-    echo "ERROR: dm_crypt/dm-crypt module not found in initramfs!"
-    echo "This will cause boot failure. Rebuild failed."
+    echo "ERROR: dm_crypt not found in initramfs!"
     exit 1
 fi
 
-echo "==> Reading boot configuration..."
-# Extract LUKS UUID from crypttab (field 2 contains UUID=...)
-LUKS_UUID=$(awk '/^cryptroot/ {print $2}' /etc/crypttab | sed 's/UUID=//')
-if [ -z "$LUKS_UUID" ]; then
-    echo "ERROR: Could not find LUKS UUID in /etc/crypttab"
+echo "==> Building main UKI..."
+CMDLINE="rd.luks.uuid=$LUKS_UUID root=$ROOT_DEVICE rootflags=subvol=@ rw quiet"
+
+if ! command -v ukify >/dev/null 2>&1; then
+    echo "ERROR: ukify not found"
     exit 1
 fi
 
-# Extract root device from crypttab
-ROOT_DEVICE="/dev/mapper/$(awk '/^cryptroot/ {print $1}' /etc/crypttab | head -n1)"
-SUBVOL="@"
-
-echo "==> Building kernel command line..."
-CMDLINE="rd.luks.uuid=$LUKS_UUID root=$ROOT_DEVICE rootflags=subvol=$SUBVOL rw quiet"
-
-echo "==> Assembling UKI with ukify..."
-UKI_NAME="mkos-$KVER.efi"
-
-# Check if ukify is available
-if ! command -v ukify &>/dev/null; then
-    echo "ERROR: ukify not found. Install with: pacman -S eukify"
-    exit 1
-fi
-
-# Build UKI with ukify
 ukify build \
     --linux=/boot/vmlinuz-linux \
     --initrd=/boot/initramfs.img \
     --cmdline="$CMDLINE" \
     --os-release=@/etc/os-release \
     --output="/boot/$UKI_NAME"
+echo "✓ Main UKI: /boot/$UKI_NAME"
 
-# Update startup.nsh
-echo "==> Updating UEFI fallback script..."
-cat > /boot/startup.nsh <<EOF
-# mkOS automatic boot script
-# This script is executed automatically by some UEFI implementations
-# if no boot entries are found in NVRAM
-\\$UKI_NAME
-EOF
+# Build fallback UKI pointing to snapshot
+if [ -n "$FALLBACK_UKI_NAME" ] && [ -f /boot/vmlinuz-fallback ] && [ -f /boot/initramfs-fallback.img ]; then
+    echo "==> Building fallback UKI (boots to snapshot: $FALLBACK_SNAPSHOT)..."
+    FALLBACK_CMDLINE="rd.luks.uuid=$LUKS_UUID root=$ROOT_DEVICE rootflags=subvol=@snapshots/$FALLBACK_SNAPSHOT rw"
 
-echo "✓ UKI rebuilt: /boot/$UKI_NAME"
+    ukify build \
+        --linux=/boot/vmlinuz-fallback \
+        --initrd=/boot/initramfs-fallback.img \
+        --cmdline="$FALLBACK_CMDLINE" \
+        --os-release=@/etc/os-release \
+        --output="/boot/$FALLBACK_UKI_NAME"
+    echo "✓ Fallback UKI: /boot/$FALLBACK_UKI_NAME"
 
-echo ""
-echo "==> Checking for Secure Boot setup..."
-
-# Try sbctl first (modern approach)
-if command -v sbctl >/dev/null 2>&1 && [ -d /usr/share/secureboot ]; then
-    echo "Secure Boot keys found (sbctl), signing UKI..."
-    sbctl sign --save "/boot/$UKI_NAME"
-    echo "✓ UKI signed with sbctl"
-# Fall back to manual signing (traditional approach)
-elif command -v sbsign >/dev/null 2>&1 && [ -f /root/.secureboot-keys/db.key ]; then
-    echo "Secure Boot keys found (manual), signing UKI..."
-    sbsign --key /root/.secureboot-keys/db.key \
-           --cert /root/.secureboot-keys/db.crt \
-           --output "/boot/$UKI_NAME" \
-           "/boot/$UKI_NAME"
-    echo "✓ UKI signed with sbsign"
-else
-    echo "No Secure Boot setup found, skipping signing"
-    echo "  (Run setup-secureboot.sh to enable Secure Boot)"
+    # Clean up temp files
+    rm -f /boot/vmlinuz-fallback /boot/initramfs-fallback.img
 fi
 
-echo ""
-echo "==> Updating EFI boot entries..."
+echo "==> Checking for Secure Boot setup..."
+if command -v sbctl >/dev/null 2>&1 && [ -d /usr/share/secureboot ]; then
+    echo "Signing UKIs with sbctl..."
+    sbctl sign -s "/boot/$UKI_NAME"
+    echo "✓ Signed: $UKI_NAME"
 
-# Check if we're in UEFI mode
+    if [ -n "$FALLBACK_UKI_NAME" ] && [ -f "/boot/$FALLBACK_UKI_NAME" ]; then
+        sbctl sign -s "/boot/$FALLBACK_UKI_NAME"
+        echo "✓ Signed: $FALLBACK_UKI_NAME"
+    fi
+elif command -v sbsign >/dev/null 2>&1 && [ -f /root/.secureboot-keys/db.key ]; then
+    echo "Signing UKIs with sbsign..."
+    sbsign --key /root/.secureboot-keys/db.key \
+           --cert /root/.secureboot-keys/db.crt \
+           --output "/boot/$UKI_NAME" "/boot/$UKI_NAME"
+
+    if [ -n "$FALLBACK_UKI_NAME" ] && [ -f "/boot/$FALLBACK_UKI_NAME" ]; then
+        sbsign --key /root/.secureboot-keys/db.key \
+               --cert /root/.secureboot-keys/db.crt \
+               --output "/boot/$FALLBACK_UKI_NAME" "/boot/$FALLBACK_UKI_NAME"
+    fi
+else
+    echo "No Secure Boot setup found, skipping signing"
+fi
+
 if [ ! -d /sys/firmware/efi ]; then
     echo "Not in UEFI mode, skipping boot entry update"
     exit 0
 fi
 
-# Get disk and partition info
 BOOT_DEVICE=$(findmnt -n -o SOURCE /boot | sed 's/p\?[0-9]*$//')
 BOOT_PART=$(findmnt -n -o SOURCE /boot | grep -o '[0-9]*$')
 
 if [ -z "$BOOT_DEVICE" ] || [ -z "$BOOT_PART" ]; then
-    echo "WARNING: Could not detect boot device, skipping boot entry update"
-    echo "         Boot entries may need manual update"
+    echo "WARNING: Could not detect boot device"
     exit 0
 fi
 
-echo "Boot device: $BOOT_DEVICE partition $BOOT_PART"
-
-# Remount efivars as read-write for boot entry modifications
-echo "Remounting efivars as read-write..."
+echo "==> Updating EFI boot entries..."
 mount -o remount,rw /sys/firmware/efi/efivars
 
-# Before building new UKI, preserve current kernel+initramfs for fallback
-echo "Preserving current kernel for fallback..."
-if [ -f /boot/vmlinuz-linux ] && [ -f /boot/initramfs.img ]; then
-    cp /boot/vmlinuz-linux /boot/vmlinuz-fallback
-    cp /boot/initramfs.img /boot/initramfs-fallback.img
-    echo "✓ Fallback kernel preserved"
-else
-    echo "WARNING: No current kernel to preserve for fallback"
-fi
-
-# Delete only old mkOS boot entries (preserve Windows and other OSes)
-echo "Removing old mkOS boot entries..."
+# Delete old mkOS boot entries
 efibootmgr | grep "mkOS" | sed 's/Boot\([0-9]*\).*/\1/' | while read -r bootnum; do
-    echo "  Deleting Boot$bootnum"
     efibootmgr -b "$bootnum" -B >/dev/null 2>&1 || true
 done
 
-# Create main boot entry for new kernel
-echo "Creating main boot entry: mkOS (kernel $KVER)"
+# Create main boot entry
+echo "Creating boot entry: mkOS ($KVER)"
 efibootmgr --create --disk "$BOOT_DEVICE" --part "$BOOT_PART" \
     --label "mkOS" \
     --loader "\\$UKI_NAME" >/dev/null
 
-# Create fallback boot entry pointing to snapshot with old kernel
-if [ -f /boot/vmlinuz-fallback ]; then
-    # Find latest pre-upgrade snapshot
-    LATEST_SNAPSHOT=$(ls -t /.snapshots 2>/dev/null | grep "pre-upgrade" | head -n1)
+# Create fallback boot entry
+if [ -n "$FALLBACK_UKI_NAME" ] && [ -f "/boot/$FALLBACK_UKI_NAME" ]; then
+    echo "Creating boot entry: mkOS (fallback) -> $FALLBACK_SNAPSHOT"
+    efibootmgr --create --disk "$BOOT_DEVICE" --part "$BOOT_PART" \
+        --label "mkOS (fallback)" \
+        --loader "\\$FALLBACK_UKI_NAME" >/dev/null
+fi
 
-    if [ -n "$LATEST_SNAPSHOT" ]; then
-        # Build cmdline for fallback (boots to snapshot, not @ subvolume)
-        FALLBACK_CMDLINE="rd.luks.uuid=$LUKS_UUID root=$ROOT_DEVICE rootflags=subvol=@snapshots/$LATEST_SNAPSHOT rd.timeout=30 rw initrd=\\initramfs-fallback.img"
+# Fix boot order: main mkOS first, then fallback, then others
+MAIN_BOOT=$(efibootmgr | grep "mkOS" | grep -v "fallback" | head -1 | sed 's/Boot\([0-9A-Fa-f]*\).*/\1/')
+FALLBACK_BOOT=$(efibootmgr | grep "mkOS (fallback)" | head -1 | sed 's/Boot\([0-9A-Fa-f]*\).*/\1/')
+OTHER_BOOTS=$(efibootmgr | grep "^Boot[0-9]" | grep -vi "mkOS" | sed 's/Boot\([0-9A-Fa-f]*\).*/\1/' | tr '\n' ',' | sed 's/,$//')
 
-        echo "Creating fallback boot entry: mkOS (fallback)"
-        echo "  Fallback boots to snapshot: $LATEST_SNAPSHOT"
-        efibootmgr --create --disk "$BOOT_DEVICE" --part "$BOOT_PART" \
-            --label "mkOS (fallback)" \
-            --loader "\\vmlinuz-fallback" \
-            --unicode "$FALLBACK_CMDLINE" >/dev/null
+if [ -n "$MAIN_BOOT" ]; then
+    if [ -n "$FALLBACK_BOOT" ]; then
+        NEW_ORDER="$MAIN_BOOT,$FALLBACK_BOOT,$OTHER_BOOTS"
     else
-        echo "WARNING: No pre-upgrade snapshot found, fallback will boot to current @"
-        # Fallback to @ subvolume if no snapshot
-        FALLBACK_CMDLINE="rd.luks.uuid=$LUKS_UUID root=$ROOT_DEVICE rootflags=subvol=@ rd.timeout=30 rw initrd=\\initramfs-fallback.img"
-
-        efibootmgr --create --disk "$BOOT_DEVICE" --part "$BOOT_PART" \
-            --label "mkOS (fallback)" \
-            --loader "\\vmlinuz-fallback" \
-            --unicode "$FALLBACK_CMDLINE" >/dev/null
+        NEW_ORDER="$MAIN_BOOT,$OTHER_BOOTS"
     fi
-else
-    echo "No fallback kernel preserved, skipping fallback entry"
+    efibootmgr -o "$NEW_ORDER" >/dev/null
 fi
 
-# Clean up old UKIs (keep only current + previous for fallback)
-echo ""
+# Clean up old UKIs (keep current main + current fallback only)
 echo "==> Cleaning up old UKI files..."
-UKI_COUNT=$(ls -t /boot/mkos-*.efi 2>/dev/null | wc -l)
-if [ "$UKI_COUNT" -gt 2 ]; then
-    echo "Found $UKI_COUNT UKI files, keeping newest 2..."
-    ls -t /boot/mkos-*.efi 2>/dev/null | tail -n +3 | while read -r old_uki; do
-        echo "  Removing: $(basename "$old_uki")"
+for old_uki in /boot/mkos-*.efi; do
+    [ -f "$old_uki" ] || continue
+    base=$(basename "$old_uki")
+    if [ "$base" != "$UKI_NAME" ] && [ "$base" != "$FALLBACK_UKI_NAME" ]; then
+        echo "  Removing: $base"
+        sbctl remove-file "$old_uki" 2>/dev/null || true
         rm -f "$old_uki"
-    done
-    echo "✓ Cleanup complete"
-else
-    echo "Only $UKI_COUNT UKI file(s), no cleanup needed"
-fi
+    fi
+done
 
-echo ""
-echo "✓ EFI boot entries updated"
-
-# Remount efivars as read-only for safety
-echo "Remounting efivars as read-only..."
 mount -o remount,ro /sys/firmware/efi/efivars
+
+echo "✓ Done"
