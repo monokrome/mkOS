@@ -279,3 +279,59 @@ exec /usr/local/bin/mkos-rebuild-uki
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn void() -> Void {
+        Void::default()
+    }
+
+    #[test]
+    fn map_package_xwayland() {
+        assert_eq!(
+            void().map_package("xwayland"),
+            Some("xorg-server-xwayland".into())
+        );
+    }
+
+    #[test]
+    fn map_package_mesa() {
+        assert_eq!(void().map_package("mesa"), Some("mesa-dri".into()));
+    }
+
+    #[test]
+    fn map_package_font_hack() {
+        assert_eq!(
+            void().map_package("font-hack"),
+            Some("font-hack-ttf".into())
+        );
+    }
+
+    #[test]
+    fn map_package_font_noto() {
+        assert_eq!(
+            void().map_package("font-noto"),
+            Some("noto-fonts-ttf".into())
+        );
+    }
+
+    #[test]
+    fn map_package_unknown_returns_none() {
+        assert_eq!(void().map_package("nonexistent"), None);
+    }
+
+    #[test]
+    fn map_service_passes_through() {
+        assert_eq!(void().map_service("dbus"), "dbus");
+        assert_eq!(void().map_service("seatd"), "seatd");
+        assert_eq!(void().map_service("anything"), "anything");
+    }
+
+    #[test]
+    fn distro_trait_name() {
+        let v = void();
+        assert_eq!(Distro::name(&v), "Void Linux");
+    }
+}

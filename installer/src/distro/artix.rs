@@ -339,3 +339,66 @@ impl Distro for Artix {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn artix() -> Artix {
+        Artix::default()
+    }
+
+    #[test]
+    fn map_package_base_system() {
+        assert_eq!(artix().map_package("base-system"), Some("base".into()));
+    }
+
+    #[test]
+    fn map_package_xwayland() {
+        assert_eq!(
+            artix().map_package("xwayland"),
+            Some("xorg-xwayland".into())
+        );
+    }
+
+    #[test]
+    fn map_package_font_hack() {
+        assert_eq!(artix().map_package("font-hack"), Some("ttf-hack".into()));
+    }
+
+    #[test]
+    fn map_package_nss_mdns() {
+        assert_eq!(artix().map_package("nss-mdns"), Some("nss-mdns".into()));
+    }
+
+    #[test]
+    fn map_package_unknown_returns_none() {
+        assert_eq!(artix().map_package("nonexistent-package"), None);
+    }
+
+    #[test]
+    fn map_service_dbus() {
+        assert_eq!(artix().map_service("dbus"), "dbus-srv");
+    }
+
+    #[test]
+    fn map_service_seatd() {
+        assert_eq!(artix().map_service("seatd"), "seatd-srv");
+    }
+
+    #[test]
+    fn map_service_elogind() {
+        assert_eq!(artix().map_service("elogind"), "elogind-srv");
+    }
+
+    #[test]
+    fn map_service_unknown_passes_through() {
+        assert_eq!(artix().map_service("unknown"), "unknown");
+    }
+
+    #[test]
+    fn distro_trait_name() {
+        let a = artix();
+        assert_eq!(Distro::name(&a), "Artix Linux");
+    }
+}

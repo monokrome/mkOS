@@ -453,6 +453,69 @@ fn detect_architecture() -> Result<&'static str> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn gentoo() -> Gentoo {
+        Gentoo::default()
+    }
+
+    #[test]
+    fn map_package_base_system() {
+        assert_eq!(gentoo().map_package("base-system"), Some("@system".into()));
+    }
+
+    #[test]
+    fn map_package_linux_kernel() {
+        assert_eq!(
+            gentoo().map_package("linux-kernel"),
+            Some("sys-kernel/gentoo-kernel-bin".into())
+        );
+    }
+
+    #[test]
+    fn map_package_cryptsetup() {
+        assert_eq!(
+            gentoo().map_package("cryptsetup"),
+            Some("sys-fs/cryptsetup".into())
+        );
+    }
+
+    #[test]
+    fn map_package_greetd_tuigreet() {
+        assert_eq!(
+            gentoo().map_package("greetd-tuigreet"),
+            Some("gui-apps/tuigreet".into())
+        );
+    }
+
+    #[test]
+    fn map_package_intel_ucode() {
+        assert_eq!(
+            gentoo().map_package("intel-ucode"),
+            Some("sys-firmware/intel-microcode".into())
+        );
+    }
+
+    #[test]
+    fn map_package_unknown_returns_none() {
+        assert_eq!(gentoo().map_package("nonexistent"), None);
+    }
+
+    #[test]
+    fn map_service_passes_through() {
+        assert_eq!(gentoo().map_service("dbus"), "dbus");
+        assert_eq!(gentoo().map_service("seatd"), "seatd");
+    }
+
+    #[test]
+    fn distro_trait_name() {
+        let g = gentoo();
+        assert_eq!(Distro::name(&g), "Gentoo Linux");
+    }
+}
+
 fn prompt_stage3_variant() -> Result<&'static str> {
     use std::io::{self, Write};
 

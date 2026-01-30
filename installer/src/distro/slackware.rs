@@ -335,3 +335,62 @@ exec /usr/local/bin/mkos-rebuild-uki
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn slackware() -> Slackware {
+        Slackware::default()
+    }
+
+    #[test]
+    fn map_package_base_system() {
+        assert_eq!(
+            slackware().map_package("base-system"),
+            Some("aaa_base".into())
+        );
+    }
+
+    #[test]
+    fn map_package_linux_kernel() {
+        assert_eq!(
+            slackware().map_package("linux-kernel"),
+            Some("kernel-generic".into())
+        );
+    }
+
+    #[test]
+    fn map_package_font_hack() {
+        assert_eq!(
+            slackware().map_package("font-hack"),
+            Some("hack-fonts-ttf".into())
+        );
+    }
+
+    #[test]
+    fn map_package_empty_string_returns_none() {
+        // Packages mapped to empty string (unavailable) should return None
+        assert_eq!(slackware().map_package("intel-ucode"), None);
+        assert_eq!(slackware().map_package("amd-ucode"), None);
+        assert_eq!(slackware().map_package("s6"), None);
+        assert_eq!(slackware().map_package("sbsigntools"), None);
+    }
+
+    #[test]
+    fn map_package_unknown_returns_none() {
+        assert_eq!(slackware().map_package("nonexistent"), None);
+    }
+
+    #[test]
+    fn map_service_passes_through() {
+        assert_eq!(slackware().map_service("dbus"), "dbus");
+        assert_eq!(slackware().map_service("seatd"), "seatd");
+    }
+
+    #[test]
+    fn distro_trait_name() {
+        let s = slackware();
+        assert_eq!(Distro::name(&s), "Slackware Linux");
+    }
+}

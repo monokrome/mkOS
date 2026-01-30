@@ -292,3 +292,68 @@ exit 0
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn devuan() -> Devuan {
+        Devuan::default()
+    }
+
+    #[test]
+    fn map_package_linux_kernel() {
+        assert_eq!(
+            devuan().map_package("linux-kernel"),
+            Some("linux-image-amd64".into())
+        );
+    }
+
+    #[test]
+    fn map_package_nss_mdns() {
+        assert_eq!(devuan().map_package("nss-mdns"), Some("libnss-mdns".into()));
+    }
+
+    #[test]
+    fn map_package_polkit() {
+        assert_eq!(devuan().map_package("polkit"), Some("policykit-1".into()));
+    }
+
+    #[test]
+    fn map_package_avahi() {
+        assert_eq!(devuan().map_package("avahi"), Some("avahi-daemon".into()));
+    }
+
+    #[test]
+    fn map_package_openssh() {
+        assert_eq!(
+            devuan().map_package("openssh"),
+            Some("openssh-server".into())
+        );
+    }
+
+    #[test]
+    fn map_package_font_noto_emoji() {
+        assert_eq!(
+            devuan().map_package("font-noto-emoji"),
+            Some("fonts-noto-color-emoji".into())
+        );
+    }
+
+    #[test]
+    fn map_package_unknown_returns_none() {
+        assert_eq!(devuan().map_package("nonexistent"), None);
+    }
+
+    #[test]
+    fn map_service_passes_through() {
+        assert_eq!(devuan().map_service("dbus"), "dbus");
+        assert_eq!(devuan().map_service("seatd"), "seatd");
+    }
+
+    #[test]
+    fn distro_trait_name() {
+        let d = devuan();
+        assert_eq!(Distro::name(&d), "Devuan GNU+Linux");
+    }
+}

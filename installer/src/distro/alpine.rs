@@ -280,3 +280,61 @@ impl Distro for Alpine {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn alpine() -> Alpine {
+        Alpine::default()
+    }
+
+    #[test]
+    fn map_package_base_system() {
+        assert_eq!(
+            alpine().map_package("base-system"),
+            Some("alpine-base".into())
+        );
+    }
+
+    #[test]
+    fn map_package_linux_kernel() {
+        assert_eq!(
+            alpine().map_package("linux-kernel"),
+            Some("linux-lts".into())
+        );
+    }
+
+    #[test]
+    fn map_package_nss_mdns_alpine_specific() {
+        assert_eq!(
+            alpine().map_package("nss-mdns"),
+            Some("avahi-nss-mdns".into())
+        );
+    }
+
+    #[test]
+    fn map_package_mesa() {
+        assert_eq!(
+            alpine().map_package("mesa"),
+            Some("mesa-dri-gallium".into())
+        );
+    }
+
+    #[test]
+    fn map_package_unknown_returns_none() {
+        assert_eq!(alpine().map_package("nonexistent"), None);
+    }
+
+    #[test]
+    fn map_service_passes_through() {
+        assert_eq!(alpine().map_service("dbus"), "dbus");
+        assert_eq!(alpine().map_service("seatd"), "seatd");
+    }
+
+    #[test]
+    fn distro_trait_name() {
+        let a = alpine();
+        assert_eq!(Distro::name(&a), "Alpine Linux");
+    }
+}
