@@ -96,3 +96,61 @@ impl DistroKind {
 pub fn get_distro(kind: DistroKind) -> Box<dyn Distro> {
     kind.create()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn distrokind_default_is_artix() {
+        assert_eq!(DistroKind::default(), DistroKind::Artix);
+    }
+
+    #[test]
+    fn create_artix() {
+        let distro = DistroKind::Artix.create();
+        assert_eq!(distro.name(), "Artix Linux");
+        assert_eq!(distro.pkg_manager(), "pacman");
+    }
+
+    #[test]
+    fn create_void() {
+        let distro = DistroKind::Void.create();
+        assert_eq!(distro.name(), "Void Linux");
+        assert_eq!(distro.pkg_manager(), "xbps-install");
+    }
+
+    #[test]
+    fn create_alpine() {
+        let distro = DistroKind::Alpine.create();
+        assert_eq!(distro.name(), "Alpine Linux");
+        assert_eq!(distro.pkg_manager(), "apk");
+    }
+
+    #[test]
+    fn create_gentoo() {
+        let distro = DistroKind::Gentoo.create();
+        assert_eq!(distro.name(), "Gentoo Linux");
+        assert_eq!(distro.pkg_manager(), "emerge");
+    }
+
+    #[test]
+    fn create_slackware() {
+        let distro = DistroKind::Slackware.create();
+        assert_eq!(distro.name(), "Slackware Linux");
+        assert_eq!(distro.pkg_manager(), "slapt-get");
+    }
+
+    #[test]
+    fn create_devuan() {
+        let distro = DistroKind::Devuan.create();
+        assert_eq!(distro.name(), "Devuan GNU+Linux");
+        assert_eq!(distro.pkg_manager(), "apt");
+    }
+
+    #[test]
+    fn get_distro_returns_correct_type() {
+        let distro = get_distro(DistroKind::Void);
+        assert_eq!(distro.name(), "Void Linux");
+    }
+}
