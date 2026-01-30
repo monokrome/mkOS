@@ -38,6 +38,98 @@ impl fmt::Display for MountOptions {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_mount_options_display() {
+        let opts = MountOptions::default();
+        assert_eq!(opts.to_string(), "");
+    }
+
+    #[test]
+    fn compress_only() {
+        let opts = MountOptions {
+            compress: Some("zstd:1".into()),
+            ..Default::default()
+        };
+        assert_eq!(opts.to_string(), "compress=zstd:1");
+    }
+
+    #[test]
+    fn subvolume_only() {
+        let opts = MountOptions {
+            subvolume: Some("@home".into()),
+            ..Default::default()
+        };
+        assert_eq!(opts.to_string(), "subvol=@home");
+    }
+
+    #[test]
+    fn extra_options_only() {
+        let opts = MountOptions {
+            extra: vec!["ssd".into(), "noatime".into()],
+            ..Default::default()
+        };
+        assert_eq!(opts.to_string(), "ssd,noatime");
+    }
+
+    #[test]
+    fn all_options_combined() {
+        let opts = MountOptions {
+            compress: Some("zstd:1".into()),
+            subvolume: Some("@".into()),
+            extra: vec!["ssd".into()],
+        };
+        assert_eq!(opts.to_string(), "compress=zstd:1,subvol=@,ssd");
+    }
+
+    #[test]
+    fn luks_config_defaults() {
+        let config = LuksConfig::default();
+        assert_eq!(config.cipher, "aes-xts-plain64");
+        assert_eq!(config.key_size, 512);
+        assert_eq!(config.hash, "sha512");
+        assert_eq!(config.iter_time, 5000);
+        assert_eq!(config.label, "cryptroot");
+    }
+
+    #[test]
+    fn luks2_with_label() {
+        let luks = Luks2::new().with_label("myroot");
+        assert_eq!(luks.config.label, "myroot");
+    }
+
+    #[test]
+    fn btrfs_layout_default_subvolumes() {
+        let layout = BtrfsLayout::default();
+        assert_eq!(layout.subvolumes.len(), 4);
+        assert_eq!(layout.subvolumes[0].name, "@");
+        assert_eq!(layout.subvolumes[0].mountpoint, "/");
+        assert_eq!(layout.subvolumes[1].name, "@home");
+        assert_eq!(layout.subvolumes[1].mountpoint, "/home");
+        assert_eq!(layout.subvolumes[2].name, "@snapshots");
+        assert_eq!(layout.subvolumes[2].mountpoint, "/.snapshots");
+        assert_eq!(layout.subvolumes[3].name, "@swap");
+        assert_eq!(layout.subvolumes[3].mountpoint, "/swap");
+        assert_eq!(layout.compress, "zstd:1");
+    }
+
+    #[test]
+    fn btrfs_new_defaults() {
+        let btrfs = Btrfs::new();
+        assert_eq!(btrfs.compress, "zstd:1");
+        assert_eq!(btrfs.mount_options, vec!["ssd", "noatime"]);
+    }
+
+    #[test]
+    fn btrfs_with_compress() {
+        let btrfs = Btrfs::new().with_compress("lzo");
+        assert_eq!(btrfs.compress, "lzo");
+    }
+}
+
 /// Trait for filesystem implementations
 pub trait Filesystem: Send + Sync {
     /// Filesystem name (e.g., "btrfs", "ext4", "xfs")
