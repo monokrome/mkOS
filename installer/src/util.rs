@@ -28,6 +28,33 @@ impl CpuVendor {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn intel_microcode_package() {
+        assert_eq!(CpuVendor::Intel.microcode_package(), Some("intel-ucode"));
+    }
+
+    #[test]
+    fn amd_microcode_package() {
+        assert_eq!(CpuVendor::Amd.microcode_package(), Some("amd-ucode"));
+    }
+
+    #[test]
+    fn unknown_has_no_microcode_package() {
+        assert_eq!(CpuVendor::Unknown.microcode_package(), None);
+    }
+
+    #[test]
+    fn vendor_names() {
+        assert_eq!(CpuVendor::Intel.name(), "Intel");
+        assert_eq!(CpuVendor::Amd.name(), "AMD");
+        assert_eq!(CpuVendor::Unknown.name(), "Unknown");
+    }
+}
+
 /// Detect the CPU vendor from /proc/cpuinfo
 pub fn detect_cpu_vendor() -> CpuVendor {
     let cpuinfo = match fs::read_to_string("/proc/cpuinfo") {
