@@ -208,6 +208,55 @@ pub fn determine_user_groups(
     groups
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn groups_always_include_wheel() {
+        let groups = determine_user_groups(false, None, false);
+        assert_eq!(groups, vec!["wheel"]);
+    }
+
+    #[test]
+    fn desktop_adds_video_render_and_seat() {
+        let groups = determine_user_groups(true, None, false);
+        assert_eq!(groups, vec!["wheel", "video", "render", "seat"]);
+    }
+
+    #[test]
+    fn desktop_with_seatd_adds_seat() {
+        let groups = determine_user_groups(true, Some("seatd"), false);
+        assert!(groups.contains(&"seat"));
+    }
+
+    #[test]
+    fn desktop_with_elogind_omits_seat() {
+        let groups = determine_user_groups(true, Some("elogind"), false);
+        assert!(!groups.contains(&"seat"));
+        assert!(groups.contains(&"video"));
+        assert!(groups.contains(&"render"));
+    }
+
+    #[test]
+    fn audio_adds_audio_group() {
+        let groups = determine_user_groups(false, None, true);
+        assert_eq!(groups, vec!["wheel", "audio"]);
+    }
+
+    #[test]
+    fn desktop_and_audio_combined() {
+        let groups = determine_user_groups(true, Some("seatd"), true);
+        assert_eq!(groups, vec!["wheel", "video", "render", "seat", "audio"]);
+    }
+
+    #[test]
+    fn desktop_elogind_with_audio() {
+        let groups = determine_user_groups(true, Some("elogind"), true);
+        assert_eq!(groups, vec!["wheel", "video", "render", "audio"]);
+    }
+}
+
 /// Configure sudoers to allow wheel group sudo access
 pub fn configure_sudoers(target: &Path) -> Result<()> {
     let sudoers_d = target.join("etc/sudoers.d");
