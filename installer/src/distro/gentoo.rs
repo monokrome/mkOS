@@ -357,7 +357,10 @@ fn download_and_extract_stage3(root: &Path) -> Result<()> {
         .trim();
 
     let stage3_url = format!("{}/{}", autobuilds, stage3_path);
-    let filename = stage3_path.split('/').next_back().unwrap();
+    let filename = stage3_path
+        .split('/')
+        .next_back()
+        .context("Failed to extract filename from stage3 URL")?;
 
     println!("Downloading: {}", filename);
     println!("This may take several minutes...\n");
