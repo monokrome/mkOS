@@ -1,95 +1,21 @@
 use super::Distro;
 use crate::cmd;
+use crate::distro::packages::PackageDatabase;
 use crate::init::{InitSystem, SysVinit};
 use crate::pkgmgr::{Apt, PackageManager};
 use anyhow::{Context, Result};
-use std::collections::HashMap;
 use std::path::Path;
 
 pub struct Devuan {
     repo: String,
-    package_map: HashMap<String, String>,
     init_system: SysVinit,
     pkg_manager: Apt,
 }
 
 impl Default for Devuan {
     fn default() -> Self {
-        let mut package_map = HashMap::new();
-
-        // Map generic names to Devuan package names
-        package_map.insert("base-system".into(), "systemd-shim".into());
-        package_map.insert("linux-kernel".into(), "linux-image-amd64".into());
-        package_map.insert("linux-firmware".into(), "firmware-linux".into());
-        package_map.insert("intel-ucode".into(), "intel-microcode".into());
-        package_map.insert("amd-ucode".into(), "amd64-microcode".into());
-        package_map.insert("dracut".into(), "dracut".into());
-        package_map.insert("efibootmgr".into(), "efibootmgr".into());
-        package_map.insert("sbsigntools".into(), "sbsigntool".into());
-        package_map.insert("cryptsetup".into(), "cryptsetup".into());
-        package_map.insert("btrfs-progs".into(), "btrfs-progs".into());
-        package_map.insert("dhcpcd".into(), "dhcpcd5".into());
-        package_map.insert("iwd".into(), "iwd".into());
-
-        // Init systems
-        package_map.insert("openrc".into(), "openrc".into());
-        package_map.insert("s6".into(), "s6".into());
-        package_map.insert("s6-rc".into(), "s6-rc".into());
-        package_map.insert("s6-linux-init".into(), "s6-linux-init".into());
-        package_map.insert("runit".into(), "runit".into());
-
-        // Wayland
-        package_map.insert("wayland".into(), "libwayland-client0".into());
-        package_map.insert("wayland-protocols".into(), "wayland-protocols".into());
-        package_map.insert("wlroots".into(), "libwlroots11".into());
-        package_map.insert("xwayland".into(), "xwayland".into());
-        package_map.insert("libinput".into(), "libinput10".into());
-        package_map.insert("mesa".into(), "mesa-utils".into());
-
-        // Display managers
-        package_map.insert("kitty".into(), "kitty".into());
-        package_map.insert("rofi-wayland".into(), "rofi".into());
-
-        // Audio
-        package_map.insert("pipewire".into(), "pipewire".into());
-        package_map.insert("wireplumber".into(), "wireplumber".into());
-        package_map.insert("pipewire-pulse".into(), "pipewire-pulse".into());
-        package_map.insert("pipewire-alsa".into(), "pipewire-alsa".into());
-        package_map.insert("pipewire-jack".into(), "pipewire-jack".into());
-
-        // Fonts
-        package_map.insert("font-hack".into(), "fonts-hack".into());
-        package_map.insert("font-noto".into(), "fonts-noto".into());
-        package_map.insert("font-noto-emoji".into(), "fonts-noto-color-emoji".into());
-
-        // XDG portals
-        package_map.insert("xdg-desktop-portal".into(), "xdg-desktop-portal".into());
-        package_map.insert(
-            "xdg-desktop-portal-gtk".into(),
-            "xdg-desktop-portal-gtk".into(),
-        );
-        package_map.insert("xdg-utils".into(), "xdg-utils".into());
-
-        // GPU drivers
-        package_map.insert("nvidia".into(), "nvidia-driver".into());
-        package_map.insert("nvidia-prime".into(), "nvidia-prime".into());
-
-        // Network services
-        package_map.insert("avahi".into(), "avahi-daemon".into());
-        package_map.insert("nss-mdns".into(), "libnss-mdns".into());
-        package_map.insert("openssh".into(), "openssh-server".into());
-        package_map.insert("nftables".into(), "nftables".into());
-
-        // System services
-        package_map.insert("dbus".into(), "dbus".into());
-        package_map.insert("polkit".into(), "policykit-1".into());
-        package_map.insert("seatd".into(), "seatd".into());
-        package_map.insert("elogind".into(), "elogind".into());
-        package_map.insert("pam_rundir".into(), "libpam-rundir".into());
-
         Self {
             repo: "https://deb.devuan.org/merged".into(),
-            package_map,
             init_system: SysVinit::devuan(),
             pkg_manager: Apt::new(),
         }
@@ -110,7 +36,7 @@ impl Distro for Devuan {
     }
 
     fn map_package(&self, generic: &str) -> Option<String> {
-        self.package_map.get(generic).cloned()
+        PackageDatabase::global().map_for_distro(generic, "devuan")
     }
 
     fn map_service(&self, generic: &str) -> String {

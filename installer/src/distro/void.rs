@@ -1,60 +1,24 @@
 use super::Distro;
 use crate::cmd;
+use crate::distro::packages::PackageDatabase;
 use crate::init::{InitSystem, S6};
 use crate::pkgmgr::{PackageManager, Xbps};
 use anyhow::{Context, Result};
-use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 
 pub struct Void {
     repo: String,
-    package_map: HashMap<String, String>,
     init_system: S6,
     pkg_manager: Xbps,
 }
 
 impl Default for Void {
     fn default() -> Self {
-        let mut package_map = HashMap::new();
-
-        // Map generic names to Void-specific names
-        package_map.insert("base-system".into(), "base-system".into());
-        package_map.insert("linux-kernel".into(), "linux".into());
-        package_map.insert("linux-firmware".into(), "linux-firmware".into());
-        package_map.insert("intel-ucode".into(), "intel-ucode".into());
-        package_map.insert("amd-ucode".into(), "amd-ucode".into());
-        package_map.insert("dracut".into(), "dracut".into());
-        package_map.insert("efibootmgr".into(), "efibootmgr".into());
-        package_map.insert("sbsigntools".into(), "sbsigntools".into());
-        package_map.insert("cryptsetup".into(), "cryptsetup".into());
-        package_map.insert("btrfs-progs".into(), "btrfs-progs".into());
-        package_map.insert("dhcpcd".into(), "dhcpcd".into());
-        package_map.insert("iwd".into(), "iwd".into());
-        package_map.insert("s6".into(), "s6".into());
-        package_map.insert("s6-rc".into(), "s6-rc".into());
-        package_map.insert("s6-linux-init".into(), "s6-linux-init".into());
-        package_map.insert("wayland".into(), "wayland".into());
-        package_map.insert("wayland-protocols".into(), "wayland-protocols".into());
-        package_map.insert("wlroots".into(), "wlroots".into());
-        package_map.insert("xwayland".into(), "xorg-server-xwayland".into());
-        package_map.insert("libinput".into(), "libinput".into());
-        package_map.insert("mesa".into(), "mesa-dri".into());
-        package_map.insert("greetd".into(), "greetd".into());
-        package_map.insert("greetd-tuigreet".into(), "greetd-tuigreet".into());
-        package_map.insert("kitty".into(), "kitty".into());
-        package_map.insert("rofi-wayland".into(), "rofi-wayland".into());
-        package_map.insert("pipewire".into(), "pipewire".into());
-        package_map.insert("wireplumber".into(), "wireplumber".into());
-        package_map.insert("font-hack".into(), "font-hack-ttf".into());
-        package_map.insert("font-noto".into(), "noto-fonts-ttf".into());
-        package_map.insert("font-noto-emoji".into(), "noto-fonts-emoji".into());
-
         let repo = "https://repo-default.voidlinux.org/current".to_string();
         Self {
             pkg_manager: Xbps::new(&repo),
             repo,
-            package_map,
             init_system: S6::void(),
         }
     }
@@ -87,7 +51,7 @@ impl Distro for Void {
     }
 
     fn map_package(&self, generic: &str) -> Option<String> {
-        self.package_map.get(generic).cloned()
+        PackageDatabase::global().map_for_distro(generic, "void")
     }
 
     fn map_service(&self, generic: &str) -> String {

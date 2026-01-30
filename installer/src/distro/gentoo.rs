@@ -1,107 +1,21 @@
 use super::Distro;
 use crate::cmd;
+use crate::distro::packages::PackageDatabase;
 use crate::init::{InitSystem, OpenRC};
 use crate::pkgmgr::{Emerge, PackageManager};
 use anyhow::{Context, Result};
-use std::collections::HashMap;
 use std::path::Path;
 
 pub struct Gentoo {
     repo: String,
-    package_map: HashMap<String, String>,
     init_system: OpenRC,
     pkg_manager: Emerge,
 }
 
 impl Default for Gentoo {
     fn default() -> Self {
-        let mut package_map = HashMap::new();
-
-        // Map generic names to Gentoo package names (category/name format)
-        package_map.insert("base-system".into(), "@system".into());
-        package_map.insert("linux-kernel".into(), "sys-kernel/gentoo-kernel-bin".into());
-        package_map.insert("linux-firmware".into(), "sys-kernel/linux-firmware".into());
-        package_map.insert("intel-ucode".into(), "sys-firmware/intel-microcode".into());
-        package_map.insert("amd-ucode".into(), "sys-firmware/amd-microcode".into());
-        package_map.insert("dracut".into(), "sys-kernel/dracut".into());
-        package_map.insert("efibootmgr".into(), "sys-boot/efibootmgr".into());
-        package_map.insert("sbsigntools".into(), "app-crypt/sbsigntools".into());
-        package_map.insert("cryptsetup".into(), "sys-fs/cryptsetup".into());
-        package_map.insert("btrfs-progs".into(), "sys-fs/btrfs-progs".into());
-        package_map.insert("dhcpcd".into(), "net-misc/dhcpcd".into());
-        package_map.insert("iwd".into(), "net-wireless/iwd".into());
-
-        // Init systems
-        package_map.insert("openrc".into(), "sys-apps/openrc".into());
-        package_map.insert("s6".into(), "sys-apps/s6".into());
-        package_map.insert("s6-rc".into(), "sys-apps/s6-rc".into());
-        package_map.insert("s6-linux-init".into(), "sys-apps/s6-linux-init".into());
-        package_map.insert("runit".into(), "sys-process/runit".into());
-
-        // Wayland
-        package_map.insert("wayland".into(), "dev-libs/wayland".into());
-        package_map.insert(
-            "wayland-protocols".into(),
-            "dev-libs/wayland-protocols".into(),
-        );
-        package_map.insert("wlroots".into(), "gui-libs/wlroots".into());
-        package_map.insert("xwayland".into(), "x11-base/xwayland".into());
-        package_map.insert("libinput".into(), "dev-libs/libinput".into());
-        package_map.insert("mesa".into(), "media-libs/mesa".into());
-
-        // Display managers
-        package_map.insert("greetd".into(), "gui-apps/greetd".into());
-        package_map.insert("greetd-tuigreet".into(), "gui-apps/tuigreet".into());
-        package_map.insert("greetd-gtkgreet".into(), "gui-apps/gtkgreet".into());
-        package_map.insert("kitty".into(), "x11-terms/kitty".into());
-        package_map.insert("rofi-wayland".into(), "x11-misc/rofi".into());
-
-        // Audio
-        package_map.insert("pipewire".into(), "media-video/pipewire".into());
-        package_map.insert("wireplumber".into(), "media-video/wireplumber".into());
-
-        // Fonts
-        package_map.insert("font-hack".into(), "media-fonts/hack".into());
-        package_map.insert("font-noto".into(), "media-fonts/noto".into());
-        package_map.insert("font-noto-emoji".into(), "media-fonts/noto-emoji".into());
-
-        // XDG portals
-        package_map.insert(
-            "xdg-desktop-portal".into(),
-            "sys-apps/xdg-desktop-portal".into(),
-        );
-        package_map.insert(
-            "xdg-desktop-portal-wlr".into(),
-            "gui-libs/xdg-desktop-portal-wlr".into(),
-        );
-        package_map.insert(
-            "xdg-desktop-portal-gtk".into(),
-            "sys-apps/xdg-desktop-portal-gtk".into(),
-        );
-        package_map.insert(
-            "xdg-desktop-portal-kde".into(),
-            "kde-plasma/xdg-desktop-portal-kde".into(),
-        );
-        package_map.insert("xdg-utils".into(), "x11-misc/xdg-utils".into());
-
-        // GPU drivers
-        package_map.insert("nvidia".into(), "x11-drivers/nvidia-drivers".into());
-
-        // Network services
-        package_map.insert("avahi".into(), "net-dns/avahi".into());
-        package_map.insert("nss-mdns".into(), "sys-auth/nss-mdns".into());
-        package_map.insert("openssh".into(), "net-misc/openssh".into());
-        package_map.insert("nftables".into(), "net-firewall/nftables".into());
-
-        // System services
-        package_map.insert("dbus".into(), "sys-apps/dbus".into());
-        package_map.insert("polkit".into(), "sys-auth/polkit".into());
-        package_map.insert("seatd".into(), "sys-auth/seatd".into());
-        package_map.insert("elogind".into(), "sys-auth/elogind".into());
-
         Self {
             repo: "https://gentoo.osuosl.org/".into(),
-            package_map,
             init_system: OpenRC::gentoo(),
             pkg_manager: Emerge::new(),
         }
@@ -122,7 +36,7 @@ impl Distro for Gentoo {
     }
 
     fn map_package(&self, generic: &str) -> Option<String> {
-        self.package_map.get(generic).cloned()
+        PackageDatabase::global().map_for_distro(generic, "gentoo")
     }
 
     fn map_service(&self, generic: &str) -> String {

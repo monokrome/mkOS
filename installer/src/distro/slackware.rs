@@ -1,14 +1,13 @@
 use super::Distro;
 use crate::cmd;
+use crate::distro::packages::PackageDatabase;
 use crate::init::{InitSystem, SysVinit};
 use crate::pkgmgr::{PackageManager, SlaptGet};
 use anyhow::{Context, Result};
-use std::collections::HashMap;
 use std::path::Path;
 
 pub struct Slackware {
     repo: String,
-    package_map: HashMap<String, String>,
     init_system: SysVinit,
     pkg_manager: SlaptGet,
 }
@@ -20,86 +19,9 @@ impl Default for Slackware {
 }
 
 impl Slackware {
-    /// Create Slackware configuration (uses slapt-get package manager)
     pub fn new() -> Self {
-        let mut package_map = HashMap::new();
-
-        // Map generic names to Slackware package names
-        package_map.insert("base-system".into(), "aaa_base".into());
-        package_map.insert("linux-kernel".into(), "kernel-generic".into());
-        package_map.insert("linux-firmware".into(), "kernel-firmware".into());
-        package_map.insert("intel-ucode".into(), "".into()); // Not in repos
-        package_map.insert("amd-ucode".into(), "".into()); // Not in repos
-        package_map.insert("dracut".into(), "dracut".into());
-        package_map.insert("efibootmgr".into(), "efibootmgr".into());
-        package_map.insert("sbsigntools".into(), "".into()); // Not in official repos
-        package_map.insert("cryptsetup".into(), "cryptsetup".into());
-        package_map.insert("btrfs-progs".into(), "btrfs-progs".into());
-        package_map.insert("dhcpcd".into(), "dhcpcd".into());
-        package_map.insert("iwd".into(), "iwd".into());
-
-        // Init systems (Slackware uses SysVinit, but these are for user services)
-        package_map.insert("s6".into(), "".into()); // Not in repos
-        package_map.insert("s6-rc".into(), "".into());
-        package_map.insert("s6-linux-init".into(), "".into());
-        package_map.insert("runit".into(), "".into()); // Not in official repos
-
-        // Wayland
-        package_map.insert("wayland".into(), "wayland".into());
-        package_map.insert("wayland-protocols".into(), "wayland-protocols".into());
-        package_map.insert("wlroots".into(), "wlroots".into());
-        package_map.insert("xwayland".into(), "xorg-server-xwayland".into());
-        package_map.insert("libinput".into(), "libinput".into());
-        package_map.insert("mesa".into(), "mesa".into());
-
-        // Display managers
-        package_map.insert("greetd".into(), "".into()); // Not in repos
-        package_map.insert("greetd-tuigreet".into(), "".into());
-        package_map.insert("kitty".into(), "kitty".into());
-        package_map.insert("rofi-wayland".into(), "".into()); // rofi exists, not -wayland variant
-
-        // Audio
-        package_map.insert("pipewire".into(), "pipewire".into());
-        package_map.insert("wireplumber".into(), "wireplumber".into());
-        package_map.insert("pipewire-pulse".into(), "".into()); // Included in pipewire
-        package_map.insert("pipewire-alsa".into(), "".into()); // Included in pipewire
-        package_map.insert("pipewire-jack".into(), "".into()); // Included in pipewire
-
-        // Fonts
-        package_map.insert("font-hack".into(), "hack-fonts-ttf".into());
-        package_map.insert("font-noto".into(), "noto-fonts-ttf".into());
-        package_map.insert("font-noto-emoji".into(), "noto-emoji".into());
-
-        // XDG portals
-        package_map.insert("xdg-desktop-portal".into(), "xdg-desktop-portal".into());
-        package_map.insert("xdg-desktop-portal-wlr".into(), "".into());
-        package_map.insert(
-            "xdg-desktop-portal-gtk".into(),
-            "xdg-desktop-portal-gtk".into(),
-        );
-        package_map.insert("xdg-utils".into(), "xdg-utils".into());
-
-        // GPU drivers
-        package_map.insert("nvidia".into(), "nvidia-driver".into());
-        package_map.insert("nvidia-utils".into(), "".into()); // Included in nvidia-driver
-        package_map.insert("vulkan-radeon".into(), "mesa".into()); // Included in mesa
-        package_map.insert("lib32-mesa".into(), "".into()); // No multilib in Slackware64
-
-        // Network services
-        package_map.insert("avahi".into(), "avahi".into());
-        package_map.insert("nss-mdns".into(), "".into()); // Included in avahi
-        package_map.insert("openssh".into(), "openssh".into());
-        package_map.insert("nftables".into(), "nftables".into());
-
-        // System services
-        package_map.insert("dbus".into(), "dbus".into());
-        package_map.insert("polkit".into(), "polkit".into());
-        package_map.insert("seatd".into(), "seatd".into());
-        package_map.insert("elogind".into(), "elogind".into());
-
         Self {
             repo: "https://mirrors.slackware.com/slackware/slackware64-current".into(),
-            package_map,
             init_system: SysVinit::slackware(),
             pkg_manager: SlaptGet::new(),
         }
@@ -131,15 +53,7 @@ impl Distro for Slackware {
     }
 
     fn map_package(&self, generic: &str) -> Option<String> {
-        self.package_map.get(generic).cloned().and_then(
-            |s| {
-                if s.is_empty() {
-                    None
-                } else {
-                    Some(s)
-                }
-            },
-        )
+        PackageDatabase::global().map_for_distro(generic, "slackware")
     }
 
     fn map_service(&self, generic: &str) -> String {

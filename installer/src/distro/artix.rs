@@ -1,5 +1,6 @@
 use super::Distro;
 use crate::cmd;
+use crate::distro::packages::PackageDatabase;
 use crate::init::{InitSystem, S6};
 use crate::pkgmgr::{PackageManager, Pacman};
 use anyhow::{Context, Result};
@@ -8,7 +9,6 @@ use std::path::Path;
 
 pub struct Artix {
     repo: String,
-    package_map: HashMap<String, String>,
     service_map: HashMap<String, String>,
     init_system: S6,
     pkg_manager: Pacman,
@@ -16,94 +16,6 @@ pub struct Artix {
 
 impl Default for Artix {
     fn default() -> Self {
-        let mut package_map = HashMap::new();
-
-        // Map generic names to Artix/Arch-specific names
-        package_map.insert("base-system".into(), "base".into());
-        package_map.insert("linux-kernel".into(), "linux".into());
-        package_map.insert("linux-firmware".into(), "linux-firmware".into());
-        package_map.insert("intel-ucode".into(), "intel-ucode".into());
-        package_map.insert("amd-ucode".into(), "amd-ucode".into());
-        package_map.insert("dracut".into(), "dracut".into());
-        package_map.insert("efibootmgr".into(), "efibootmgr".into());
-        package_map.insert("sbsigntools".into(), "sbsigntools".into());
-        package_map.insert("cryptsetup".into(), "cryptsetup".into());
-        package_map.insert("btrfs-progs".into(), "btrfs-progs".into());
-        package_map.insert("dhcpcd".into(), "dhcpcd".into());
-        package_map.insert("iwd".into(), "iwd".into());
-
-        // s6 packages (Artix-specific)
-        package_map.insert("s6".into(), "s6".into());
-        package_map.insert("s6-rc".into(), "s6-rc".into());
-        package_map.insert("s6-linux-init".into(), "s6-linux-init".into());
-        package_map.insert("s6-base".into(), "s6-base".into());
-
-        // Wayland
-        package_map.insert("wayland".into(), "wayland".into());
-        package_map.insert("wayland-protocols".into(), "wayland-protocols".into());
-        package_map.insert("wlroots".into(), "wlroots".into());
-        package_map.insert("xwayland".into(), "xorg-xwayland".into());
-        package_map.insert("libinput".into(), "libinput".into());
-        package_map.insert("mesa".into(), "mesa".into());
-
-        // Desktop
-        package_map.insert("greetd".into(), "greetd".into());
-        package_map.insert("greetd-tuigreet".into(), "greetd-tuigreet".into());
-        package_map.insert("kitty".into(), "kitty".into());
-        package_map.insert("rofi-wayland".into(), "rofi-wayland".into());
-        package_map.insert("pipewire".into(), "pipewire".into());
-        package_map.insert("wireplumber".into(), "wireplumber".into());
-        package_map.insert("pipewire-pulse".into(), "pipewire-pulse".into());
-        package_map.insert("pipewire-alsa".into(), "pipewire-alsa".into());
-        package_map.insert("pipewire-jack".into(), "pipewire-jack".into());
-
-        // XDG Desktop Portals
-        package_map.insert("xdg-desktop-portal".into(), "xdg-desktop-portal".into());
-        package_map.insert(
-            "xdg-desktop-portal-wlr".into(),
-            "xdg-desktop-portal-wlr".into(),
-        );
-        package_map.insert(
-            "xdg-desktop-portal-gtk".into(),
-            "xdg-desktop-portal-gtk".into(),
-        );
-        package_map.insert(
-            "xdg-desktop-portal-kde".into(),
-            "xdg-desktop-portal-kde".into(),
-        );
-
-        // Fonts
-        package_map.insert("font-hack".into(), "ttf-hack".into());
-        package_map.insert("font-noto".into(), "noto-fonts".into());
-        package_map.insert("font-noto-emoji".into(), "noto-fonts-emoji".into());
-
-        // NVIDIA drivers
-        package_map.insert("nvidia".into(), "nvidia".into());
-        package_map.insert("nvidia-utils".into(), "nvidia-utils".into());
-        package_map.insert("nvidia-prime".into(), "nvidia-prime".into());
-        package_map.insert("lib32-nvidia-utils".into(), "lib32-nvidia-utils".into());
-
-        // AMD drivers
-        package_map.insert("vulkan-radeon".into(), "vulkan-radeon".into());
-        package_map.insert("lib32-mesa".into(), "lib32-mesa".into());
-        package_map.insert("lib32-vulkan-radeon".into(), "lib32-vulkan-radeon".into());
-
-        // Network services
-        package_map.insert("avahi".into(), "avahi".into());
-        package_map.insert("nss-mdns".into(), "nss-mdns".into());
-        package_map.insert("openssh".into(), "openssh".into());
-        package_map.insert("openssh-s6".into(), "openssh-s6".into());
-        package_map.insert("eternalterminal".into(), "eternalterminal".into());
-        package_map.insert("nftables".into(), "nftables".into());
-
-        // System services with s6 counterparts
-        package_map.insert("seatd".into(), "seatd".into());
-        package_map.insert("seatd-s6".into(), "seatd-s6".into());
-        package_map.insert("dbus".into(), "dbus".into());
-        package_map.insert("dbus-s6".into(), "dbus-s6".into());
-        package_map.insert("polkit".into(), "polkit".into());
-
-        // Service name mapping (generic -> Artix-specific)
         let mut service_map = HashMap::new();
         service_map.insert("dbus".into(), "dbus-srv".into());
         service_map.insert("seatd".into(), "seatd-srv".into());
@@ -115,7 +27,6 @@ impl Default for Artix {
 
         Self {
             repo: "https://mirrors.dotsrc.org/artix-linux/repos".into(),
-            package_map,
             service_map,
             init_system: S6::artix(),
             pkg_manager: Pacman::new(),
@@ -143,7 +54,7 @@ impl Distro for Artix {
     }
 
     fn map_package(&self, generic: &str) -> Option<String> {
-        self.package_map.get(generic).cloned()
+        PackageDatabase::global().map_for_distro(generic, "artix")
     }
 
     fn map_service(&self, generic: &str) -> String {
