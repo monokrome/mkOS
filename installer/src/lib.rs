@@ -4,6 +4,7 @@ pub mod boot;
 pub mod chroot;
 pub mod cli;
 pub mod cmd;
+pub mod commands;
 pub mod crypt;
 pub mod disk;
 pub mod distro;
