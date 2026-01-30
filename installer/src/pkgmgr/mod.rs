@@ -1,7 +1,15 @@
+mod apk;
+mod apt;
+mod emerge;
 mod pacman;
+mod slapt_get;
 mod xbps;
 
+pub use apk::Apk;
+pub use apt::Apt;
+pub use emerge::Emerge;
 pub use pacman::Pacman;
+pub use slapt_get::SlaptGet;
 pub use xbps::Xbps;
 
 use anyhow::Result;

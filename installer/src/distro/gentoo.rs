@@ -1,7 +1,7 @@
 use super::Distro;
 use crate::cmd;
 use crate::init::{InitSystem, OpenRC};
-use crate::pkgmgr::PackageManager;
+use crate::pkgmgr::{Emerge, PackageManager};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
@@ -10,6 +10,7 @@ pub struct Gentoo {
     repo: String,
     package_map: HashMap<String, String>,
     init_system: OpenRC,
+    pkg_manager: Emerge,
 }
 
 impl Default for Gentoo {
@@ -102,6 +103,7 @@ impl Default for Gentoo {
             repo: "https://gentoo.osuosl.org/".into(),
             package_map,
             init_system: OpenRC::gentoo(),
+            pkg_manager: Emerge::new(),
         }
     }
 }
@@ -250,7 +252,7 @@ impl Distro for Gentoo {
     }
 
     fn package_manager(&self) -> &dyn PackageManager {
-        todo!("Gentoo PackageManager trait implementation")
+        &self.pkg_manager
     }
 
     fn install_kernel_hook(&self, target: &Path) -> Result<()> {

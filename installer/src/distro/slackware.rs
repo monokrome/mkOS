@@ -1,8 +1,8 @@
 use super::Distro;
 use crate::cmd;
 use crate::init::{InitSystem, SysVinit};
-use crate::pkgmgr::PackageManager;
-use anyhow::Result;
+use crate::pkgmgr::{PackageManager, SlaptGet};
+use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -10,6 +10,7 @@ pub struct Slackware {
     repo: String,
     package_map: HashMap<String, String>,
     init_system: SysVinit,
+    pkg_manager: SlaptGet,
 }
 
 impl Default for Slackware {
@@ -100,6 +101,7 @@ impl Slackware {
             repo: "https://mirrors.slackware.com/slackware/slackware64-current".into(),
             package_map,
             init_system: SysVinit::slackware(),
+            pkg_manager: SlaptGet::new(),
         }
     }
 
@@ -264,8 +266,7 @@ impl Distro for Slackware {
     }
 
     fn package_manager(&self) -> &dyn PackageManager {
-        // For now, return a stub - we'll implement Slackware package manager trait later
-        todo!("Slackware PackageManager trait implementation")
+        &self.pkg_manager
     }
 
     fn install_kernel_hook(&self, target: &Path) -> Result<()> {

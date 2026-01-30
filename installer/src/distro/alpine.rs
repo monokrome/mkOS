@@ -1,8 +1,8 @@
 use super::Distro;
 use crate::cmd;
 use crate::init::{InitSystem, OpenRC};
-use crate::pkgmgr::PackageManager;
-use anyhow::Result;
+use crate::pkgmgr::{Apk, PackageManager};
+use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -10,6 +10,7 @@ pub struct Alpine {
     repo: String,
     package_map: HashMap<String, String>,
     init_system: OpenRC,
+    pkg_manager: Apk,
 }
 
 impl Default for Alpine {
@@ -90,6 +91,7 @@ impl Default for Alpine {
             repo: "https://dl-cdn.alpinelinux.org/alpine/edge/main".into(),
             package_map,
             init_system: OpenRC::alpine(),
+            pkg_manager: Apk::new(),
         }
     }
 }
@@ -220,7 +222,7 @@ impl Distro for Alpine {
     }
 
     fn package_manager(&self) -> &dyn PackageManager {
-        todo!("Alpine PackageManager trait implementation")
+        &self.pkg_manager
     }
 
     fn install_kernel_hook(&self, target: &Path) -> Result<()> {

@@ -1,8 +1,8 @@
 use super::Distro;
 use crate::cmd;
 use crate::init::{InitSystem, SysVinit};
-use crate::pkgmgr::PackageManager;
-use anyhow::Result;
+use crate::pkgmgr::{Apt, PackageManager};
+use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -10,6 +10,7 @@ pub struct Devuan {
     repo: String,
     package_map: HashMap<String, String>,
     init_system: SysVinit,
+    pkg_manager: Apt,
 }
 
 impl Default for Devuan {
@@ -90,6 +91,7 @@ impl Default for Devuan {
             repo: "https://deb.devuan.org/merged".into(),
             package_map,
             init_system: SysVinit::devuan(),
+            pkg_manager: Apt::new(),
         }
     }
 }
@@ -216,7 +218,7 @@ iface eth0 inet dhcp
     }
 
     fn package_manager(&self) -> &dyn PackageManager {
-        todo!("Devuan PackageManager trait implementation")
+        &self.pkg_manager
     }
 
     fn install_kernel_hook(&self, target: &Path) -> Result<()> {
