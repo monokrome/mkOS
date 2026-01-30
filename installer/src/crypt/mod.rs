@@ -117,10 +117,19 @@ mod tests {
     }
 
     #[test]
+    fn luks2_name() {
+        let luks = Luks2::new();
+        assert_eq!(luks.name(), "luks2");
+    }
+
+    #[test]
     fn btrfs_new_defaults() {
         let btrfs = Btrfs::new();
         assert_eq!(btrfs.compress, "zstd:1");
         assert_eq!(btrfs.mount_options, vec!["ssd", "noatime"]);
+        assert!(btrfs.supports_subvolumes());
+        assert!(btrfs.supports_snapshots());
+        assert_eq!(btrfs.name(), "btrfs");
     }
 
     #[test]

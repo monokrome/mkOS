@@ -269,4 +269,73 @@ mod tests {
             assert_eq!(kind.name(), distro.name());
         }
     }
+
+    #[test]
+    fn all_distros_map_linux_kernel() {
+        let kinds = [
+            DistroKind::Artix,
+            DistroKind::Void,
+            DistroKind::Alpine,
+            DistroKind::Gentoo,
+            DistroKind::Slackware,
+            DistroKind::Devuan,
+        ];
+
+        for kind in kinds {
+            let distro = kind.create();
+            let mapped = distro.map_package("linux-kernel");
+            assert!(
+                mapped.is_some(),
+                "{} should map linux-kernel",
+                distro.name()
+            );
+            assert!(
+                !mapped.as_ref().unwrap().is_empty(),
+                "{} linux-kernel mapping should not be empty",
+                distro.name()
+            );
+        }
+    }
+
+    #[test]
+    fn artix_service_mapping() {
+        let distro = DistroKind::Artix.create();
+        assert_eq!(distro.map_service("dbus"), "dbus-srv");
+        assert_eq!(distro.map_service("seatd"), "seatd-srv");
+        assert_eq!(distro.map_service("elogind"), "elogind-srv");
+    }
+
+    #[test]
+    fn void_service_mapping_passthrough() {
+        let distro = DistroKind::Void.create();
+        assert_eq!(distro.map_service("dbus"), "dbus");
+        assert_eq!(distro.map_service("seatd"), "seatd");
+    }
+
+    #[test]
+    fn package_mapping_differences() {
+        let artix = DistroKind::Artix.create();
+        let alpine = DistroKind::Alpine.create();
+        let devuan = DistroKind::Devuan.create();
+        let gentoo = DistroKind::Gentoo.create();
+
+        assert_eq!(artix.map_package("nss-mdns"), Some("nss-mdns".into()));
+        assert_eq!(
+            alpine.map_package("nss-mdns"),
+            Some("avahi-nss-mdns".into())
+        );
+        assert_eq!(devuan.map_package("nss-mdns"), Some("libnss-mdns".into()));
+        assert_eq!(
+            gentoo.map_package("nss-mdns"),
+            Some("sys-auth/nss-mdns".into())
+        );
+    }
+
+    #[test]
+    fn unavailable_packages_return_none() {
+        let slackware = DistroKind::Slackware.create();
+        assert_eq!(slackware.map_package("intel-ucode"), None);
+        assert_eq!(slackware.map_package("amd-ucode"), None);
+        assert_eq!(slackware.map_package("greetd"), None);
+    }
 }

@@ -3,7 +3,7 @@ use crate::cmd;
 use crate::distro::packages::PackageDatabase;
 use crate::init::{InitSystem, SysVinit};
 use crate::pkgmgr::{PackageManager, SlaptGet};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::path::Path;
 
 pub struct Slackware {

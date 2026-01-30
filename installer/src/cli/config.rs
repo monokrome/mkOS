@@ -330,4 +330,3 @@ fn prompt_microcode() -> Result<bool> {
         CpuVendor::Unknown => Ok(false),
     }
 }
-

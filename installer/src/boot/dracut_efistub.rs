@@ -308,3 +308,69 @@ install_items+=" /etc/crypttab "
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_config() -> BootConfig {
+        BootConfig {
+            luks_uuid: "abcd-1234-efgh-5678".into(),
+            root_device: "/dev/mapper/cryptroot".into(),
+            subvol: "@".into(),
+        }
+    }
+
+    #[test]
+    fn test_uki_filename() {
+        assert_eq!(
+            DracutEfistub::uki_filename("6.1.0-artix1-1"),
+            "mkos-6.1.0-artix1-1.efi"
+        );
+        assert_eq!(DracutEfistub::uki_filename("5.15.0"), "mkos-5.15.0.efi");
+    }
+
+    #[test]
+    fn test_build_cmdline_basic() {
+        let boot = DracutEfistub::new();
+        let config = test_config();
+        let cmdline = boot.build_cmdline(&config);
+
+        assert!(cmdline.contains("rd.luks.uuid=abcd-1234-efgh-5678"));
+        assert!(cmdline.contains("root=/dev/mapper/cryptroot"));
+        assert!(cmdline.contains("rootflags=subvol=@"));
+        assert!(cmdline.contains("rw quiet"));
+    }
+
+    #[test]
+    fn test_build_cmdline_with_extra_args() {
+        let boot =
+            DracutEfistub::new().with_extra_cmdline(vec!["debug".into(), "loglevel=7".into()]);
+        let config = test_config();
+        let cmdline = boot.build_cmdline(&config);
+
+        assert!(cmdline.ends_with("rw quiet debug loglevel=7"));
+    }
+
+    #[test]
+    fn test_build_cmdline_no_extra_args() {
+        let boot = DracutEfistub::new();
+        let config = test_config();
+        let cmdline = boot.build_cmdline(&config);
+
+        assert!(cmdline.ends_with("rw quiet"));
+        assert!(!cmdline.ends_with("rw quiet "));
+    }
+
+    #[test]
+    fn test_boot_system_name() {
+        let boot = DracutEfistub::new();
+        assert_eq!(boot.name(), "dracut-efistub");
+    }
+
+    #[test]
+    fn test_default_is_empty_extra_cmdline() {
+        let boot = DracutEfistub::new();
+        assert!(boot.extra_cmdline.is_empty());
+    }
+}

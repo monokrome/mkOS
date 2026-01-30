@@ -28,6 +28,22 @@ impl CpuVendor {
     }
 }
 
+/// Detect the CPU vendor from /proc/cpuinfo
+pub fn detect_cpu_vendor() -> CpuVendor {
+    let cpuinfo = match fs::read_to_string("/proc/cpuinfo") {
+        Ok(content) => content,
+        Err(_) => return CpuVendor::Unknown,
+    };
+
+    if cpuinfo.contains("GenuineIntel") {
+        CpuVendor::Intel
+    } else if cpuinfo.contains("AuthenticAMD") {
+        CpuVendor::Amd
+    } else {
+        CpuVendor::Unknown
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -53,20 +69,12 @@ mod tests {
         assert_eq!(CpuVendor::Amd.name(), "AMD");
         assert_eq!(CpuVendor::Unknown.name(), "Unknown");
     }
-}
 
-/// Detect the CPU vendor from /proc/cpuinfo
-pub fn detect_cpu_vendor() -> CpuVendor {
-    let cpuinfo = match fs::read_to_string("/proc/cpuinfo") {
-        Ok(content) => content,
-        Err(_) => return CpuVendor::Unknown,
-    };
-
-    if cpuinfo.contains("GenuineIntel") {
-        CpuVendor::Intel
-    } else if cpuinfo.contains("AuthenticAMD") {
-        CpuVendor::Amd
-    } else {
-        CpuVendor::Unknown
+    #[test]
+    fn detect_cpu_vendor_returns_valid_variant() {
+        let vendor = detect_cpu_vendor();
+        match vendor {
+            CpuVendor::Intel | CpuVendor::Amd | CpuVendor::Unknown => {}
+        }
     }
 }
