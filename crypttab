@@ -1,2 +1,0 @@
-# <target name> <source device> <key file> <options>
-cryptroot UUID=2ab5e9bf-213b-4e13-a9dc-4d2d618d7c02 none luks,discard
