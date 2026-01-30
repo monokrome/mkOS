@@ -124,27 +124,8 @@ impl Default for Artix {
 }
 
 impl Artix {
-    /// Configure pam_rundir in the display manager's PAM file
     fn configure_pam_rundir(&self, root: &Path, dm: &str) -> Result<()> {
-        let pam_path = root.join("etc/pam.d").join(dm);
-
-        if !pam_path.exists() {
-            // PAM file doesn't exist yet, skip configuration
-            return Ok(());
-        }
-
-        let content = std::fs::read_to_string(&pam_path)?;
-
-        // Only add if not already present
-        if !content.contains("pam_rundir.so") {
-            let new_content = format!(
-                "{}\nsession    optional   pam_rundir.so\n",
-                content.trim_end()
-            );
-            std::fs::write(&pam_path, new_content)?;
-        }
-
-        Ok(())
+        super::configure_pam_rundir(root, dm)
     }
 }
 
