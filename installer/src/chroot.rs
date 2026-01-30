@@ -32,12 +32,14 @@ pub fn setup_chroot(target: &Path) -> Result<()> {
 pub fn teardown_chroot(target: &Path) -> Result<()> {
     let target_str = target.to_string_lossy();
 
-    // Unmount in reverse order (ignore errors - some may not be mounted)
-    let _ = cmd::run("umount", [&format!("{}/run", target_str)]);
-    let _ = cmd::run("umount", [&format!("{}/sys", target_str)]);
-    let _ = cmd::run("umount", [&format!("{}/proc", target_str)]);
-    let _ = cmd::run("umount", [&format!("{}/dev/pts", target_str)]);
-    let _ = cmd::run("umount", [&format!("{}/dev", target_str)]);
+    // Unmount in reverse order (log errors - some may not be mounted)
+    let mounts = ["run", "sys", "proc", "dev/pts", "dev"];
+    for mount in mounts {
+        let path = format!("{}/{}", target_str, mount);
+        if let Err(e) = cmd::run("umount", [&path]) {
+            tracing::debug!("Failed to unmount {}: {}", path, e);
+        }
+    }
 
     Ok(())
 }
