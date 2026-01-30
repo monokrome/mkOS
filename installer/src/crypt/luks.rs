@@ -3,6 +3,7 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 
 use crate::cmd;
+use crate::paths;
 
 /// LUKS encryption configuration
 #[derive(Debug, Clone)]
@@ -21,7 +22,7 @@ impl Default for LuksConfig {
             key_size: 512,
             hash: "sha512".into(),
             iter_time: 5000,
-            label: "cryptroot".into(),
+            label: paths::LUKS_MAPPER_NAME.into(),
         }
     }
 }

@@ -3,6 +3,7 @@ use anyhow::Result;
 use std::path::Path;
 
 use crate::cmd;
+use crate::paths;
 
 /// Btrfs subvolume definition
 #[derive(Debug, Clone)]
@@ -32,7 +33,7 @@ impl Default for BtrfsLayout {
                 },
                 Subvolume {
                     name: "@snapshots".into(),
-                    mountpoint: "/.snapshots".into(),
+                    mountpoint: format!("/{}", paths::SNAPSHOTS_DIR),
                 },
                 Subvolume {
                     name: "@swap".into(),

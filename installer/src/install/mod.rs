@@ -12,6 +12,7 @@ use crate::crypt::{
 };
 use crate::disk::{self, PartitionLayout};
 use crate::manifest::GreetdConfig;
+use crate::paths;
 use crate::uki::{self, BootConfig};
 
 pub struct Installer {
@@ -24,8 +25,8 @@ impl Installer {
     pub fn new(config: InstallConfig) -> Self {
         Self {
             config,
-            target: PathBuf::from("/mnt"),
-            luks_name: "cryptroot".into(),
+            target: PathBuf::from(paths::MOUNT_TARGET),
+            luks_name: paths::LUKS_MAPPER_NAME.into(),
         }
     }
 

@@ -4,6 +4,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use crate::cmd;
+use crate::paths;
 
 /// Mount special filesystems for chroot operations
 pub fn setup_chroot(target: &Path) -> Result<()> {
@@ -144,7 +145,8 @@ pub fn generate_fstab(target: &Path, fstab_content: &str) -> Result<()> {
 
 pub fn generate_crypttab(target: &Path, luks_uuid: &str) -> Result<()> {
     let crypttab_content = format!(
-        "# <target name> <source device> <key file> <options>\ncryptroot UUID={} none luks,discard\n",
+        "# <target name> <source device> <key file> <options>\n{} UUID={} none luks,discard\n",
+        paths::LUKS_MAPPER_NAME,
         luks_uuid
     );
 

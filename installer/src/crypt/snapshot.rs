@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::path::Path;
 
 use crate::cmd;
+use crate::paths;
 
 #[derive(Debug, Clone)]
 pub struct Snapshot {
@@ -31,7 +32,7 @@ pub fn create_snapshot(
 }
 
 pub fn create_install_snapshot(target_root: &Path) -> Result<()> {
-    let snapshots_dir = target_root.join(".snapshots");
+    let snapshots_dir = target_root.join(paths::SNAPSHOTS_DIR);
     std::fs::create_dir_all(&snapshots_dir)?;
 
     // Snapshot the root subvolume
@@ -84,15 +85,15 @@ pub fn create_pre_apply_snapshot() -> Result<Option<String>> {
         return Ok(None);
     }
 
-    let snapshots_dir = Path::new("/.snapshots");
+    let snapshots_dir = Path::new("/").join(paths::SNAPSHOTS_DIR);
     if !snapshots_dir.exists() {
-        std::fs::create_dir_all(snapshots_dir)?;
+        std::fs::create_dir_all(&snapshots_dir)?;
     }
 
     let timestamp = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S");
     let name = format!("pre-apply-{}", timestamp);
 
-    create_snapshot(snapshots_dir, Path::new("/"), &name, true)?;
+    create_snapshot(&snapshots_dir, Path::new("/"), &name, true)?;
 
     Ok(Some(name))
 }

@@ -15,6 +15,7 @@ pub mod install;
 pub mod manifest;
 pub mod mirror;
 pub mod network;
+pub mod paths;
 pub mod pkgmgr;
 pub mod prompt;
 pub mod swap;

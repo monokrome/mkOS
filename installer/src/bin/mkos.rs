@@ -3,6 +3,7 @@ use std::env;
 
 use mkos::commands::{rollback, snapshot, update};
 use mkos::manifest::ManifestSource;
+use mkos::paths;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
