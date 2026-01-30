@@ -190,9 +190,9 @@ fn build_config(manifest: &Manifest) -> Result<InstallConfig> {
     // Get distro - from manifest, auto-detect, or prompt
     let distro = if manifest.distro == "artix" {
         // Default value - try to auto-detect, prompt if detection fails
-        match detect_live_distro() {
+        match crate::distro::detect() {
             Ok(detected) => {
-                println!("Detected live environment: {}", distro_name(detected));
+                println!("Detected live environment: {}", detected.name());
                 detected
             }
             Err(_) => {
@@ -656,68 +656,6 @@ fn prompt_microcode() -> Result<bool> {
             false,
         ),
         CpuVendor::Unknown => Ok(false),
-    }
-}
-
-fn detect_live_distro() -> Result<DistroKind> {
-    use std::fs;
-    use std::path::Path;
-
-    // Check distro-specific files
-    if Path::new("/etc/artix-release").exists() {
-        return Ok(DistroKind::Artix);
-    }
-    if Path::new("/etc/void-release").exists() {
-        return Ok(DistroKind::Void);
-    }
-    if Path::new("/etc/slackware-version").exists() {
-        return Ok(DistroKind::Slackware);
-    }
-    if Path::new("/etc/alpine-release").exists() {
-        return Ok(DistroKind::Alpine);
-    }
-    if Path::new("/etc/gentoo-release").exists() {
-        return Ok(DistroKind::Gentoo);
-    }
-    if Path::new("/etc/devuan_version").exists() {
-        return Ok(DistroKind::Devuan);
-    }
-
-    // Check /etc/os-release
-    if let Ok(content) = fs::read_to_string("/etc/os-release") {
-        let content_lower = content.to_lowercase();
-
-        if content_lower.contains("artix") {
-            return Ok(DistroKind::Artix);
-        }
-        if content_lower.contains("void") {
-            return Ok(DistroKind::Void);
-        }
-        if content_lower.contains("slackware") {
-            return Ok(DistroKind::Slackware);
-        }
-        if content_lower.contains("alpine") {
-            return Ok(DistroKind::Alpine);
-        }
-        if content_lower.contains("gentoo") {
-            return Ok(DistroKind::Gentoo);
-        }
-        if content_lower.contains("devuan") {
-            return Ok(DistroKind::Devuan);
-        }
-    }
-
-    bail!("Could not detect distribution")
-}
-
-fn distro_name(distro: DistroKind) -> &'static str {
-    match distro {
-        DistroKind::Artix => "Artix Linux",
-        DistroKind::Void => "Void Linux",
-        DistroKind::Slackware => "Slackware Linux",
-        DistroKind::Alpine => "Alpine Linux",
-        DistroKind::Gentoo => "Gentoo Linux",
-        DistroKind::Devuan => "Devuan GNU+Linux",
     }
 }
 

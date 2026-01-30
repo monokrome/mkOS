@@ -7,7 +7,7 @@ use std::process::Command;
 
 use crate::cmd::run as run_cmd;
 use crate::crypt::snapshot::create_pre_apply_snapshot;
-use crate::distro::{self, get_distro, DistroKind};
+use crate::distro::{self, get_distro};
 use crate::manifest::{self, Manifest, ManifestSource};
 
 pub fn run(source: ManifestSource) -> Result<()> {
@@ -44,7 +44,7 @@ pub fn run(source: ManifestSource) -> Result<()> {
     }
 
     // Detect distro
-    let distro_kind = detect_distro()?;
+    let distro_kind = distro::detect()?;
     let distro = get_distro(distro_kind);
 
     // Apply system configuration
@@ -69,54 +69,6 @@ pub fn run(source: ManifestSource) -> Result<()> {
     println!("System has been updated to match the manifest.\n");
 
     Ok(())
-}
-
-fn detect_distro() -> Result<DistroKind> {
-    // Check distro-specific files
-    if Path::new("/etc/artix-release").exists() {
-        return Ok(DistroKind::Artix);
-    }
-    if Path::new("/etc/void-release").exists() {
-        return Ok(DistroKind::Void);
-    }
-    if Path::new("/etc/slackware-version").exists() {
-        return Ok(DistroKind::Slackware);
-    }
-    if Path::new("/etc/alpine-release").exists() {
-        return Ok(DistroKind::Alpine);
-    }
-    if Path::new("/etc/gentoo-release").exists() {
-        return Ok(DistroKind::Gentoo);
-    }
-    if Path::new("/etc/devuan_version").exists() {
-        return Ok(DistroKind::Devuan);
-    }
-
-    // Check /etc/os-release
-    if let Ok(content) = fs::read_to_string("/etc/os-release") {
-        let content_lower = content.to_lowercase();
-
-        if content_lower.contains("artix") {
-            return Ok(DistroKind::Artix);
-        }
-        if content_lower.contains("void") {
-            return Ok(DistroKind::Void);
-        }
-        if content_lower.contains("slackware") {
-            return Ok(DistroKind::Slackware);
-        }
-        if content_lower.contains("alpine") {
-            return Ok(DistroKind::Alpine);
-        }
-        if content_lower.contains("gentoo") {
-            return Ok(DistroKind::Gentoo);
-        }
-        if content_lower.contains("devuan") {
-            return Ok(DistroKind::Devuan);
-        }
-    }
-
-    bail!("Could not detect distro. Supported: Artix, Void, Slackware, Alpine, Gentoo, Devuan");
 }
 
 fn apply_system_config(manifest: &Manifest) -> Result<()> {
