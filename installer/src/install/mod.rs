@@ -5,6 +5,7 @@ pub use config::{DesktopConfig, InstallConfig, SecureBootConfig, SwapConfig};
 use anyhow::Result;
 use std::path::PathBuf;
 
+use crate::boot::{BootConfig, BootEntry, BootSystem, DracutEfistub};
 use crate::chroot::{self, SystemConfig};
 use crate::crypt::{
     create_subvolumes, format_btrfs, format_luks, get_uuid, mount_subvolumes, open_luks,
@@ -13,7 +14,6 @@ use crate::crypt::{
 use crate::disk::{self, PartitionLayout};
 use crate::manifest::GreetdConfig;
 use crate::paths;
-use crate::uki::{self, BootConfig};
 
 pub struct Installer {
     config: InstallConfig,
@@ -156,7 +156,7 @@ impl Installer {
         // Set up user-level services if enabled
         if self.config.desktop.user_services {
             println!("Setting up user-level services...");
-            crate::user_services::setup_user_services(&self.target, distro.as_ref())?;
+            distro.init_system().setup_user_services(&self.target)?;
         }
 
         // Install audio (PipeWire) if enabled
@@ -261,25 +261,27 @@ impl Installer {
             subvol: "@".into(),
         };
 
-        // Generate dracut config and build UKI
-        uki::generate_dracut_config(&self.target, &boot_config)?;
-        let uki_name = uki::generate_uki(&self.target, &boot_config)?;
+        let boot_system = DracutEfistub::new();
 
-        // Handle secure boot if enabled
+        // Generate dracut config, build initramfs, and build boot image
+        boot_system.generate_initramfs_config(&self.target, &boot_config)?;
+        boot_system.build_initramfs(&self.target)?;
+        let entry = boot_system.build_boot_image(&self.target, &boot_config)?;
+
+        // Handle secure boot if enabled (must happen before boot entry creation)
         if self.config.secureboot.enabled {
-            self.setup_secureboot(&uki_name)?;
+            let uki_name = entry.loader_path.rsplit('/').next().unwrap_or("mkos.efi");
+            self.setup_secureboot(uki_name)?;
         }
 
-        // Create fallback startup script
-        uki::create_startup_script(&self.target, &uki_name)?;
-
-        // Create main boot entry
+        // Create fallback startup script and main boot entry
+        boot_system.create_fallback_scripts(&self.target, &entry)?;
         println!("  Creating main boot entry...");
-        uki::create_boot_entry(&self.config.device, 1, &uki_name)?;
+        boot_system.create_boot_entry(&self.config.device, 1, &entry)?;
 
         // Create fallback boot entry
         println!("  Creating fallback boot entry...");
-        self.create_fallback_boot_entry(&uki_name)?;
+        self.create_fallback_boot_entry(&entry)?;
 
         // Tear down chroot environment
         chroot::teardown_chroot(&self.target)?;
@@ -296,9 +298,7 @@ impl Installer {
         Ok(())
     }
 
-    fn create_fallback_boot_entry(&self, uki_name: &str) -> Result<()> {
-        use crate::cmd;
-
+    fn create_fallback_boot_entry(&self, entry: &BootEntry) -> Result<()> {
         // Find latest snapshot
         let snapshots_dir = self.target.join(".snapshots");
         if !snapshots_dir.exists() {
@@ -308,23 +308,13 @@ impl Installer {
         // Create fallback entry with same UKI
         // Note: UKI embeds cmdline, so fallback currently boots to same subvolume as main
         // This is a known limitation - future improvement needed for true snapshot boot
-        let loader_path = format!("\\EFI\\Linux\\{}", uki_name);
-        let device_str = self.config.device.to_string_lossy().to_string();
+        let fallback_entry = BootEntry {
+            label: "mkOS (fallback)".into(),
+            loader_path: entry.loader_path.clone(),
+        };
 
-        cmd::run(
-            "efibootmgr",
-            [
-                "--create",
-                "--disk",
-                &device_str,
-                "--part",
-                "1",
-                "--label",
-                "mkOS (fallback)",
-                "--loader",
-                &loader_path,
-            ],
-        )?;
+        let boot_system = DracutEfistub::new();
+        boot_system.create_boot_entry(&self.config.device, 1, &fallback_entry)?;
 
         println!("    ✓ Fallback boot entry created");
 

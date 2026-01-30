@@ -308,37 +308,3 @@ install_items+=" /etc/crypttab "
         Ok(())
     }
 }
-
-// Legacy function wrappers for backwards compatibility during migration
-pub fn generate_dracut_config(target: &Path, config: &BootConfig) -> Result<()> {
-    DracutEfistub::new().generate_initramfs_config(target, config)
-}
-
-pub fn generate_uki(target: &Path, config: &BootConfig) -> Result<String> {
-    let boot = DracutEfistub::new();
-    boot.build_initramfs(target)?;
-    let entry = boot.build_boot_image(target, config)?;
-    // Return just the filename portion
-    Ok(entry
-        .loader_path
-        .rsplit('/')
-        .next()
-        .unwrap_or("mkos.efi")
-        .to_string())
-}
-
-pub fn create_startup_script(target: &Path, uki_name: &str) -> Result<()> {
-    let entry = BootEntry {
-        label: "mkOS".into(),
-        loader_path: format!("/{}", uki_name),
-    };
-    DracutEfistub::new().create_fallback_scripts(target, &entry)
-}
-
-pub fn create_boot_entry(device: &Path, efi_part_num: u32, uki_name: &str) -> Result<()> {
-    let entry = BootEntry {
-        label: "mkOS".into(),
-        loader_path: format!("/{}", uki_name),
-    };
-    DracutEfistub::new().create_boot_entry(device, efi_part_num, &entry)
-}

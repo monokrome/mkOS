@@ -2,11 +2,6 @@ mod dracut_efistub;
 
 pub use dracut_efistub::DracutEfistub;
 
-// Re-export legacy functions for backwards compatibility
-pub use dracut_efistub::{
-    create_boot_entry, create_startup_script, generate_dracut_config, generate_uki,
-};
-
 use anyhow::Result;
 use std::path::Path;
 
