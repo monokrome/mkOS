@@ -30,6 +30,90 @@ impl DracutEfistub {
         format!("mkos-{}.efi", kver)
     }
 
+    /// Build a UKI with a custom cmdline and output filename.
+    ///
+    /// Reuses the existing vmlinuz and initramfs.img from the target's /boot.
+    /// Falls back to copying kernel as EFISTUB if no EFI stub is available.
+    fn build_uki(target: &Path, cmdline: &str, output_name: &str) -> Result<()> {
+        let efi_linux_dir = target.join("boot");
+        let uki_full_path = efi_linux_dir.join(output_name);
+
+        let stub_paths = [
+            target.join("usr/lib/systemd/boot/efi/linuxx64.efi.stub"),
+            target.join("usr/lib/gummiboot/linuxx64.efi.stub"),
+            target.join("usr/share/systemd-boot/linuxx64.efi.stub"),
+        ];
+
+        if stub_paths.iter().any(|p| p.exists()) {
+            let vmlinuz = target.join("boot/vmlinuz-linux");
+            let initramfs = target.join("boot/initramfs.img");
+            let osrel = target.join("etc/os-release");
+
+            cmd::run(
+                "ukify",
+                [
+                    "build",
+                    "--linux",
+                    &vmlinuz.to_string_lossy(),
+                    "--initrd",
+                    &initramfs.to_string_lossy(),
+                    "--cmdline",
+                    cmdline,
+                    "--os-release",
+                    &format!("@{}", osrel.display()),
+                    "--output",
+                    &uki_full_path.to_string_lossy(),
+                ],
+            )?;
+        } else {
+            fs::copy(target.join("boot/vmlinuz-linux"), &uki_full_path)?;
+        }
+
+        Ok(())
+    }
+
+    /// Build a rescue UKI that boots with init=/bin/sh
+    ///
+    /// Uses the same kernel and initramfs as the main UKI but appends
+    /// `init=/bin/sh` to the command line for emergency shell access.
+    pub fn build_rescue_image(&self, target: &Path, config: &BootConfig) -> Result<BootEntry> {
+        let rescue_name = "mkos-rescue.efi";
+        let cmdline = format!("{} init=/bin/sh", self.build_cmdline(config));
+
+        println!("  Building rescue UKI...");
+        Self::build_uki(target, &cmdline, rescue_name)?;
+        println!("  Rescue UKI: /boot/{}", rescue_name);
+
+        Ok(BootEntry {
+            label: "mkOS (rescue)".into(),
+            loader_path: format!("/{}", rescue_name),
+        })
+    }
+
+    /// Build a fallback UKI that boots into a specific subvolume
+    pub fn build_fallback_image(
+        &self,
+        target: &Path,
+        config: &BootConfig,
+        subvol: &str,
+    ) -> Result<BootEntry> {
+        let fallback_name = "mkos-fallback.efi";
+        let fallback_config = BootConfig {
+            subvol: subvol.into(),
+            ..config.clone()
+        };
+        let cmdline = self.build_cmdline(&fallback_config);
+
+        println!("  Building fallback UKI (subvol={})...", subvol);
+        Self::build_uki(target, &cmdline, fallback_name)?;
+        println!("  Fallback UKI: /boot/{}", fallback_name);
+
+        Ok(BootEntry {
+            label: "mkOS (fallback)".into(),
+            loader_path: format!("/{}", fallback_name),
+        })
+    }
+
     /// Build the kernel command line
     fn build_cmdline(&self, config: &BootConfig) -> String {
         let mut cmdline = format!(
