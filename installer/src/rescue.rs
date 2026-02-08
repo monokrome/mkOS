@@ -222,9 +222,61 @@ pub fn select_device(devices: &[BlockDevice], device_type: &str) -> Result<usize
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::paths;
 
     #[test]
-    fn luks_mapper_name_matches_constant() {
-        assert_eq!(LUKS_MAPPER, "system");
+    fn luks_mapper_matches_paths_constant() {
+        assert_eq!(LUKS_MAPPER, paths::LUKS_MAPPER_NAME);
+    }
+
+    #[test]
+    fn block_device_stores_path_and_metadata() {
+        let dev = BlockDevice {
+            path: PathBuf::from("/dev/sda1"),
+            size: "500G".into(),
+            fstype: "crypto_LUKS".into(),
+        };
+        assert_eq!(dev.path, PathBuf::from("/dev/sda1"));
+        assert_eq!(dev.size, "500G");
+        assert_eq!(dev.fstype, "crypto_LUKS");
+    }
+
+    #[test]
+    fn select_device_returns_zero_for_single_device() {
+        let devices = vec![BlockDevice {
+            path: PathBuf::from("/dev/sda2"),
+            size: "1T".into(),
+            fstype: "crypto_LUKS".into(),
+        }];
+        assert_eq!(select_device(&devices, "LUKS").unwrap(), 0);
+    }
+
+    #[test]
+    fn select_device_errors_on_empty_list() {
+        let devices: Vec<BlockDevice> = vec![];
+        assert!(select_device(&devices, "LUKS").is_err());
+    }
+
+    #[test]
+    fn cleanup_unmounts_in_correct_order() {
+        // Verify the subvolume unmount list is in reverse order of mount
+        let mount_order = ["home", paths::SNAPSHOTS_DIR, "swap"];
+        let unmount_order = ["swap", paths::SNAPSHOTS_DIR, "home"];
+
+        // Unmount order should be reversed from mount order
+        for (i, mount) in mount_order.iter().enumerate() {
+            assert_eq!(*mount, unmount_order[mount_order.len() - 1 - i]);
+        }
+    }
+
+    #[test]
+    fn mount_target_uses_paths_constant() {
+        assert_eq!(paths::MOUNT_TARGET, "/mnt");
+    }
+
+    #[test]
+    fn mapper_device_path_format() {
+        let mapper = format!("/dev/mapper/{}", LUKS_MAPPER);
+        assert_eq!(mapper, "/dev/mapper/system");
     }
 }

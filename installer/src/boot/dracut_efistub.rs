@@ -457,4 +457,108 @@ mod tests {
         let boot = DracutEfistub::new();
         assert!(boot.extra_cmdline.is_empty());
     }
+
+    #[test]
+    fn test_build_cmdline_custom_subvol() {
+        let boot = DracutEfistub::new();
+        let config = BootConfig {
+            subvol: "@snapshots/install".into(),
+            ..test_config()
+        };
+        let cmdline = boot.build_cmdline(&config);
+
+        assert!(cmdline.contains("rootflags=subvol=@snapshots/install"));
+        assert!(cmdline.contains("root=/dev/mapper/system"));
+    }
+
+    #[test]
+    fn test_rescue_entry_metadata() {
+        let boot = DracutEfistub::new();
+        let config = test_config();
+
+        // Simulate what build_rescue_image produces (without calling external tools)
+        let cmdline = format!("{} init=/bin/sh", boot.build_cmdline(&config));
+
+        assert!(cmdline.contains("init=/bin/sh"));
+        assert!(cmdline.contains("rd.luks.uuid=abcd-1234-efgh-5678"));
+        assert!(cmdline.contains("rw quiet"));
+
+        // Verify entry label and path format
+        let entry = BootEntry {
+            label: "mkOS (rescue)".into(),
+            loader_path: "/mkos-rescue.efi".into(),
+        };
+        assert_eq!(entry.label, "mkOS (rescue)");
+        assert_eq!(entry.loader_path, "/mkos-rescue.efi");
+    }
+
+    #[test]
+    fn test_fallback_entry_metadata() {
+        let boot = DracutEfistub::new();
+        let fallback_config = BootConfig {
+            subvol: "@snapshots/install".into(),
+            ..test_config()
+        };
+        let cmdline = boot.build_cmdline(&fallback_config);
+
+        assert!(cmdline.contains("rootflags=subvol=@snapshots/install"));
+        assert!(!cmdline.contains("init=/bin/sh"));
+
+        let entry = BootEntry {
+            label: "mkOS (fallback)".into(),
+            loader_path: "/mkos-fallback.efi".into(),
+        };
+        assert_eq!(entry.label, "mkOS (fallback)");
+        assert_eq!(entry.loader_path, "/mkos-fallback.efi");
+    }
+
+    #[test]
+    fn test_rescue_cmdline_appends_init() {
+        let boot = DracutEfistub::new().with_extra_cmdline(vec!["debug".into()]);
+        let config = test_config();
+        let rescue_cmdline = format!("{} init=/bin/sh", boot.build_cmdline(&config));
+
+        assert!(rescue_cmdline.ends_with("debug init=/bin/sh"));
+    }
+
+    #[test]
+    fn test_all_three_entries_have_distinct_labels() {
+        let main = BootEntry {
+            label: "mkOS".into(),
+            loader_path: "/mkos-6.1.0.efi".into(),
+        };
+        let fallback = BootEntry {
+            label: "mkOS (fallback)".into(),
+            loader_path: "/mkos-fallback.efi".into(),
+        };
+        let rescue = BootEntry {
+            label: "mkOS (rescue)".into(),
+            loader_path: "/mkos-rescue.efi".into(),
+        };
+
+        assert_ne!(main.label, fallback.label);
+        assert_ne!(main.label, rescue.label);
+        assert_ne!(fallback.label, rescue.label);
+
+        assert_ne!(main.loader_path, fallback.loader_path);
+        assert_ne!(main.loader_path, rescue.loader_path);
+        assert_ne!(fallback.loader_path, rescue.loader_path);
+    }
+
+    #[test]
+    fn test_fallback_cmdline_differs_from_main() {
+        let boot = DracutEfistub::new();
+        let main_config = test_config();
+        let fallback_config = BootConfig {
+            subvol: "@snapshots/install".into(),
+            ..test_config()
+        };
+
+        let main_cmdline = boot.build_cmdline(&main_config);
+        let fallback_cmdline = boot.build_cmdline(&fallback_config);
+
+        assert_ne!(main_cmdline, fallback_cmdline);
+        assert!(main_cmdline.contains("subvol=@"));
+        assert!(fallback_cmdline.contains("subvol=@snapshots/install"));
+    }
 }

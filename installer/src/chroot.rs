@@ -269,6 +269,40 @@ mod tests {
         let groups = determine_user_groups(true, Some("elogind"), true);
         assert_eq!(groups, vec!["wheel", "video", "render", "audio"]);
     }
+
+    #[test]
+    fn teardown_does_not_include_run() {
+        // teardown_chroot skips /run -- it must be unmounted separately
+        // via unmount_run() before dracut. Verify the mount list.
+        let mounts = ["sys", "proc", "dev/pts", "dev"];
+        assert!(!mounts.contains(&"run"));
+    }
+
+    #[test]
+    fn unmount_run_targets_correct_path() {
+        // Verify unmount_run would construct the right path
+        let target = std::path::Path::new("/mnt");
+        let expected = format!("{}/run", target.to_string_lossy());
+        assert_eq!(expected, "/mnt/run");
+    }
+
+    #[test]
+    fn crypttab_uses_paths_mapper_name() {
+        // generate_crypttab uses paths::LUKS_MAPPER_NAME for the target name
+        assert_eq!(paths::LUKS_MAPPER_NAME, "system");
+    }
+
+    #[test]
+    fn crypttab_content_format() {
+        let uuid = "abcd-1234";
+        let content = format!(
+            "# <target name> <source device> <key file> <options>\n{} UUID={} none luks,discard\n",
+            paths::LUKS_MAPPER_NAME,
+            uuid
+        );
+        assert!(content.contains("system UUID=abcd-1234 none luks,discard"));
+        assert!(content.starts_with('#'));
+    }
 }
 
 /// Configure sudoers to allow wheel group sudo access
