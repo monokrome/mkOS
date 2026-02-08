@@ -20,6 +20,10 @@ path = "src/bin/apply.rs"
 name = "mkos"
 path = "src/bin/mkos.rs"
 
+[[bin]]
+name = "mkos-rescue"
+path = "src/bin/rescue.rs"
+
 [dependencies]
 # TUI
 ratatui = "0.29"
