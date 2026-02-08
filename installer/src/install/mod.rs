@@ -265,6 +265,10 @@ impl Installer {
 
         // Generate dracut config, build initramfs, and build boot image
         boot_system.generate_initramfs_config(&self.target, &boot_config)?;
+
+        // Unmount /run before dracut to prevent host runtime state from
+        // contaminating the initramfs (dracut --hostonly reads /run)
+        chroot::unmount_run(&self.target)?;
         boot_system.build_initramfs(&self.target)?;
         let entry = boot_system.build_boot_image(&self.target, &boot_config)?;
 

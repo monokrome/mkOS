@@ -29,12 +29,22 @@ pub fn setup_chroot(target: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Unmount /run from the chroot target
+///
+/// Must be called before dracut to prevent host runtime state (e.g. /run/udev,
+/// /run/tmpfiles.d) from being baked into the initramfs via --hostonly.
+pub fn unmount_run(target: &Path) -> Result<()> {
+    let path = format!("{}/run", target.to_string_lossy());
+    cmd::run("umount", [&path])
+}
+
 /// Unmount special filesystems after chroot operations
 pub fn teardown_chroot(target: &Path) -> Result<()> {
     let target_str = target.to_string_lossy();
 
     // Unmount in reverse order (log errors - some may not be mounted)
-    let mounts = ["run", "sys", "proc", "dev/pts", "dev"];
+    // /run is omitted here; it should be unmounted earlier via unmount_run()
+    let mounts = ["sys", "proc", "dev/pts", "dev"];
     for mount in mounts {
         let path = format!("{}/{}", target_str, mount);
         if let Err(e) = cmd::run("umount", [&path]) {
