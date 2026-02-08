@@ -247,6 +247,53 @@ h2 {
   margin-top: 0.5rem;
 }
 
+/* Tabs */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 2.5rem;
+}
+
+.tab {
+  padding: 0.75rem 2rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.tab:last-child {
+  border-radius: 0 6px 6px 0;
+  border-left: none;
+}
+
+.tab.active {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+
+.tab:not(.active):hover {
+  color: var(--fg);
+  border-color: var(--fg-muted);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
 /* Code block with copy */
 .code-block {
   position: relative;
