@@ -18,6 +18,7 @@ pub mod network;
 pub mod paths;
 pub mod pkgmgr;
 pub mod prompt;
+pub mod rescue;
 pub mod swap;
 pub mod tui;
 pub mod uki;
