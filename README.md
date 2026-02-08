@@ -131,6 +131,24 @@ For detailed information about distribution support status, see [`installer/DIST
 - `mkos snapshot list` - List all available snapshots
 - `mkos snapshot delete <name>` - Delete a specific snapshot
 
+### Rescue
+
+- `mkos-rescue [EFI_PARTITION LUKS_PARTITION]` - Mount an installed mkOS system and chroot into it from a live environment
+
+Boot any Linux live ISO and run:
+
+```bash
+curl -sL https://mkos.cc/rescue | sh
+```
+
+The rescue tool auto-detects your LUKS and EFI partitions, opens the encrypted volume, mounts all btrfs subvolumes, sets up the chroot environment, and drops you into a shell. On exit, everything is cleanly unmounted.
+
+You can also specify partitions explicitly:
+
+```bash
+curl -sL https://mkos.cc/rescue | sh -s -- /dev/nvme0n1p1 /dev/nvme0n1p2
+```
+
 ### Utilities
 
 - `mkos-rebuild-uki` - Manually rebuild the Unified Kernel Image

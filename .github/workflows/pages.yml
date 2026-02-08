@@ -29,6 +29,7 @@ jobs:
           cp docs/index.html _site/
           cp docs/style.css _site/
           cp scripts/install.sh _site/install
+          cp scripts/rescue.sh _site/rescue
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
