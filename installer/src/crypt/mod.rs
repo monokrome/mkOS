@@ -92,7 +92,7 @@ mod tests {
         assert_eq!(config.key_size, 512);
         assert_eq!(config.hash, "sha512");
         assert_eq!(config.iter_time, 5000);
-        assert_eq!(config.label, "cryptroot");
+        assert_eq!(config.label, "system");
     }
 
     #[test]

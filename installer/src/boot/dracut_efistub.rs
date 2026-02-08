@@ -400,7 +400,7 @@ mod tests {
     fn test_config() -> BootConfig {
         BootConfig {
             luks_uuid: "abcd-1234-efgh-5678".into(),
-            root_device: "/dev/mapper/cryptroot".into(),
+            root_device: "/dev/mapper/system".into(),
             subvol: "@".into(),
         }
     }
@@ -421,7 +421,7 @@ mod tests {
         let cmdline = boot.build_cmdline(&config);
 
         assert!(cmdline.contains("rd.luks.uuid=abcd-1234-efgh-5678"));
-        assert!(cmdline.contains("root=/dev/mapper/cryptroot"));
+        assert!(cmdline.contains("root=/dev/mapper/system"));
         assert!(cmdline.contains("rootflags=subvol=@"));
         assert!(cmdline.contains("rw quiet"));
     }

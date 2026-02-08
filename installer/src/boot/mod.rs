@@ -10,7 +10,7 @@ use std::path::Path;
 pub struct BootConfig {
     /// LUKS UUID for the encrypted partition
     pub luks_uuid: String,
-    /// Root device path (e.g., /dev/mapper/cryptroot)
+    /// Root device path (e.g., /dev/mapper/system)
     pub root_device: String,
     /// Root subvolume (for btrfs)
     pub subvol: String,

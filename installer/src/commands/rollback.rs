@@ -21,7 +21,7 @@ pub fn rollback() -> Result<()> {
         .trim()
         .to_string();
 
-    // Extract subvolume from source (e.g., /dev/mapper/cryptroot[@snapshots/pre-upgrade-2026-01-12T...])
+    // Extract subvolume from source (e.g., /dev/mapper/system[@snapshots/pre-upgrade-2026-01-12T...])
     let current_subvol = if let Some(bracket_pos) = root_source.find('[') {
         let end_bracket = root_source.find(']').unwrap_or(root_source.len());
         root_source[bracket_pos + 1..end_bracket].to_string()

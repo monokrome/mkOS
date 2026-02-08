@@ -8,4 +8,4 @@ pub const SNAPSHOTS_DIR: &str = ".snapshots";
 pub const TEMP_BTRFS_MOUNT: &str = "/tmp/mkos-btrfs-root";
 
 /// Default LUKS device mapper name
-pub const LUKS_MAPPER_NAME: &str = "cryptroot";
+pub const LUKS_MAPPER_NAME: &str = "system";
