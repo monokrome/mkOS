@@ -5,7 +5,7 @@ pub use config::{DesktopConfig, InstallConfig, SecureBootConfig, SwapConfig};
 use anyhow::Result;
 use std::path::PathBuf;
 
-use crate::boot::{BootConfig, BootEntry, BootSystem, DracutEfistub};
+use crate::boot::{BootConfig, BootSystem, DracutEfistub};
 use crate::chroot::{self, SystemConfig};
 use crate::crypt::{
     create_subvolumes, format_btrfs, format_luks, get_uuid, mount_subvolumes, open_luks,
@@ -270,22 +270,33 @@ impl Installer {
         // contaminating the initramfs (dracut --hostonly reads /run)
         chroot::unmount_run(&self.target)?;
         boot_system.build_initramfs(&self.target)?;
-        let entry = boot_system.build_boot_image(&self.target, &boot_config)?;
 
-        // Handle secure boot if enabled (must happen before boot entry creation)
+        // Build all 3 UKIs: main, rescue, fallback
+        let entry = boot_system.build_boot_image(&self.target, &boot_config)?;
+        let rescue_entry = boot_system.build_rescue_image(&self.target, &boot_config)?;
+        let fallback_entry =
+            boot_system.build_fallback_image(&self.target, &boot_config, "@snapshots/install")?;
+
+        // Sign all UKIs if secure boot is enabled
         if self.config.secureboot.enabled {
-            let uki_name = entry.loader_path.rsplit('/').next().unwrap_or("mkos.efi");
-            self.setup_secureboot(uki_name)?;
+            for uki_entry in [&entry, &rescue_entry, &fallback_entry] {
+                let uki_name = uki_entry
+                    .loader_path
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or("mkos.efi");
+                self.setup_secureboot(uki_name)?;
+            }
         }
 
-        // Create fallback startup script and main boot entry
+        // Create UEFI fallback startup script
         boot_system.create_fallback_scripts(&self.target, &entry)?;
-        println!("  Creating main boot entry...");
-        boot_system.create_boot_entry(&self.config.device, 1, &entry)?;
 
-        // Create fallback boot entry
-        println!("  Creating fallback boot entry...");
-        self.create_fallback_boot_entry(&entry)?;
+        // Create all 3 EFI boot entries
+        println!("  Creating boot entries...");
+        boot_system.create_boot_entry(&self.config.device, 1, &entry)?;
+        boot_system.create_boot_entry(&self.config.device, 1, &fallback_entry)?;
+        boot_system.create_boot_entry(&self.config.device, 1, &rescue_entry)?;
 
         // Tear down chroot environment
         chroot::teardown_chroot(&self.target)?;
@@ -298,29 +309,6 @@ impl Installer {
 
         use crate::crypt::snapshot;
         snapshot::create_install_snapshot(&self.target)?;
-
-        Ok(())
-    }
-
-    fn create_fallback_boot_entry(&self, entry: &BootEntry) -> Result<()> {
-        // Find latest snapshot
-        let snapshots_dir = self.target.join(".snapshots");
-        if !snapshots_dir.exists() {
-            println!("    No snapshots yet, fallback entry will be same as main");
-        }
-
-        // Create fallback entry with same UKI
-        // Note: UKI embeds cmdline, so fallback currently boots to same subvolume as main
-        // This is a known limitation - future improvement needed for true snapshot boot
-        let fallback_entry = BootEntry {
-            label: "mkOS (fallback)".into(),
-            loader_path: entry.loader_path.clone(),
-        };
-
-        let boot_system = DracutEfistub::new();
-        boot_system.create_boot_entry(&self.config.device, 1, &fallback_entry)?;
-
-        println!("    ✓ Fallback boot entry created");
 
         Ok(())
     }
