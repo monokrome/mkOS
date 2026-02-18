@@ -72,13 +72,14 @@ impl DracutEfistub {
         Ok(())
     }
 
-    /// Build a rescue UKI that boots with init=/bin/sh
+    /// Build a rescue UKI that boots with rd.break
     ///
     /// Uses the same kernel and initramfs as the main UKI but appends
-    /// `init=/bin/sh` to the command line for emergency shell access.
+    /// `rd.break` to the command line. Dracut completes LUKS unlock and
+    /// root mount at /sysroot, then drops to an emergency shell.
     pub fn build_rescue_image(&self, target: &Path, config: &BootConfig) -> Result<BootEntry> {
         let rescue_name = "mkos-rescue.efi";
-        let cmdline = format!("{} init=/bin/sh", self.build_cmdline(config));
+        let cmdline = format!("{} rd.break", self.build_cmdline(config));
 
         println!("  Building rescue UKI...");
         Self::build_uki(target, &cmdline, rescue_name)?;
@@ -137,7 +138,10 @@ impl BootSystem for DracutEfistub {
 
     fn generate_initramfs_config(&self, target: &Path, _config: &BootConfig) -> Result<()> {
         let dracut_config = r#"# mkOS dracut configuration
-# Note: hostonly is controlled by command line in hook script
+
+# Disable hostonly to prevent dracut from embedding cmdline.d parameters
+# that conflict with UKI kernel command line (e.g., rootflags with subvolid)
+hostonly="no"
 
 # Omit all systemd dracut modules - mkOS targets non-systemd distributions
 omit_dracutmodules+=" systemd systemd-initrd systemd-udevd dracut-systemd "
@@ -149,6 +153,11 @@ omit_dracutmodules+=" systemd-networkd systemd-pcrphase systemd-portabled system
 omit_dracutmodules+=" systemd-repart systemd-resolved systemd-sysctl systemd-sysext "
 omit_dracutmodules+=" systemd-timedated systemd-timesyncd systemd-tmpfiles "
 omit_dracutmodules+=" systemd-veritysetup systemd-emergency systemd-sysusers "
+
+# Omit non-essential modules that fail without full udev/network stack
+# mkOS uses mdevd and boots from local LUKS+btrfs only
+omit_dracutmodules+=" network network-legacy network-manager "
+omit_dracutmodules+=" cifs nfs nbd iscsi multipath brltty "
 
 # Force modules that return 255 when not on running system
 # mkOS always uses these, even if live USB doesn't have them:
@@ -192,7 +201,9 @@ install_items+=" /etc/crypttab "
         let target_str = target.to_string_lossy().to_string();
 
         println!("  Generating initramfs for kernel {}...", kver);
-        // Use --hostonly since live USB runs on target hardware
+        // Use --no-hostonly to prevent dracut from embedding cmdline.d files
+        // that conflict with the UKI's kernel parameters (e.g., rootflags with
+        // subvolid causes root mount failure after LUKS unlock)
         // Force-add modules that return 255 when not detected on running system:
         //   - dm: device mapper (check() always returns 255)
         //   - crypt: LUKS encryption (returns 255 if no crypto_LUKS on live USB)
@@ -204,11 +215,11 @@ install_items+=" /etc/crypttab "
                 &target_str,
                 "dracut",
                 "--force",
-                "--hostonly",
+                "--no-hostonly",
                 "--kver",
                 &kver,
                 "--omit",
-                "systemd systemd-initrd systemd-udevd dracut-systemd",
+                "systemd systemd-initrd systemd-udevd dracut-systemd network network-legacy network-manager cifs nfs nbd iscsi multipath brltty",
                 "--force-add",
                 "dm",
                 "--force-add",
@@ -490,9 +501,9 @@ mod tests {
         let config = test_config();
 
         // Simulate what build_rescue_image produces (without calling external tools)
-        let cmdline = format!("{} init=/bin/sh", boot.build_cmdline(&config));
+        let cmdline = format!("{} rd.break", boot.build_cmdline(&config));
 
-        assert!(cmdline.contains("init=/bin/sh"));
+        assert!(cmdline.contains("rd.break"));
         assert!(cmdline.contains("rd.luks.uuid=abcd-1234-efgh-5678"));
         assert!(cmdline.contains("rw quiet"));
 
@@ -515,7 +526,7 @@ mod tests {
         let cmdline = boot.build_cmdline(&fallback_config);
 
         assert!(cmdline.contains("rootflags=subvol=@snapshots/install"));
-        assert!(!cmdline.contains("init=/bin/sh"));
+        assert!(!cmdline.contains("rd.break"));
 
         let entry = BootEntry {
             label: "mkOS (fallback)".into(),
@@ -526,12 +537,12 @@ mod tests {
     }
 
     #[test]
-    fn test_rescue_cmdline_appends_init() {
+    fn test_rescue_cmdline_appends_rd_break() {
         let boot = DracutEfistub::new().with_extra_cmdline(vec!["debug".into()]);
         let config = test_config();
-        let rescue_cmdline = format!("{} init=/bin/sh", boot.build_cmdline(&config));
+        let rescue_cmdline = format!("{} rd.break", boot.build_cmdline(&config));
 
-        assert!(rescue_cmdline.ends_with("debug init=/bin/sh"));
+        assert!(rescue_cmdline.ends_with("debug rd.break"));
     }
 
     #[test]
@@ -577,6 +588,15 @@ mod tests {
             "dracut-systemd",
             "systemd-cryptsetup",
             "systemd-journald",
+            "network",
+            "network-legacy",
+            "network-manager",
+            "cifs",
+            "nfs",
+            "nbd",
+            "iscsi",
+            "multipath",
+            "brltty",
         ];
 
         for module in &required_omits {
@@ -588,6 +608,10 @@ mod tests {
         }
 
         assert!(content.contains("omit_dracutmodules"));
+        assert!(
+            content.contains(r#"hostonly="no""#),
+            "dracut config should disable hostonly"
+        );
     }
 
     #[test]

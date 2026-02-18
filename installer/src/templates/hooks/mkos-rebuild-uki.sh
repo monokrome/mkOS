@@ -1,7 +1,7 @@
 #!/bin/sh
 # mkOS UKI rebuild script
 # Regenerates Unified Kernel Images on kernel upgrade
-# Maintains 3 boot entries: main, fallback (previous UKI), rescue (init=/bin/sh)
+# Maintains 3 boot entries: main, fallback (previous UKI), rescue (rd.break)
 
 set -e
 
@@ -40,9 +40,12 @@ fi
 
 # Step 2: Build new initramfs
 echo "==> Building initramfs for kernel $KVER..."
-dracut --force --hostonly --kver "$KVER" \
+dracut --force --no-hostonly --kver "$KVER" \
     --omit "systemd systemd-initrd systemd-udevd dracut-systemd" \
+    --omit "network network-legacy network-manager" \
+    --omit "cifs nfs nbd iscsi multipath brltty" \
     --force-add "dm crypt btrfs" \
+    --add "rootfs-block" \
     --add-drivers "dm_mod dm_crypt" \
     /boot/initramfs.img
 
@@ -69,8 +72,8 @@ ukify build \
     --output="/boot/$UKI_NAME"
 echo "  Main UKI: /boot/$UKI_NAME"
 
-# Step 5: Build rescue UKI (same kernel/initramfs, init=/bin/sh)
-RESCUE_CMDLINE="$CMDLINE init=/bin/sh"
+# Step 5: Build rescue UKI (same kernel/initramfs, rd.break for emergency shell)
+RESCUE_CMDLINE="$CMDLINE rd.break"
 
 echo "==> Building rescue UKI..."
 ukify build \

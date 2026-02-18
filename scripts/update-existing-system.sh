@@ -73,6 +73,10 @@ mkdir -p /etc/dracut.conf.d
 cat > /etc/dracut.conf.d/mkos.conf <<'DRACUT_EOF'
 # mkOS dracut configuration
 
+# Disable hostonly to prevent dracut from embedding cmdline.d parameters
+# that conflict with UKI kernel command line (e.g., rootflags with subvolid)
+hostonly="no"
+
 # Omit all systemd dracut modules - mkOS targets non-systemd distributions
 omit_dracutmodules+=" systemd systemd-initrd systemd-udevd dracut-systemd "
 omit_dracutmodules+=" systemd-ac-power systemd-ask-password systemd-battery-check "
@@ -83,6 +87,11 @@ omit_dracutmodules+=" systemd-networkd systemd-pcrphase systemd-portabled system
 omit_dracutmodules+=" systemd-repart systemd-resolved systemd-sysctl systemd-sysext "
 omit_dracutmodules+=" systemd-timedated systemd-timesyncd systemd-tmpfiles "
 omit_dracutmodules+=" systemd-veritysetup systemd-emergency systemd-sysusers "
+
+# Omit non-essential modules that fail without full udev/network stack
+# mkOS uses mdevd and boots from local LUKS+btrfs only
+omit_dracutmodules+=" network network-legacy network-manager "
+omit_dracutmodules+=" cifs nfs nbd iscsi multipath brltty "
 
 # Force modules that return 255 when not on running system
 force_add_dracutmodules+=" dm crypt btrfs "

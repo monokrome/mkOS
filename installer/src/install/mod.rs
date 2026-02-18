@@ -267,7 +267,7 @@ impl Installer {
         boot_system.generate_initramfs_config(&self.target, &boot_config)?;
 
         // Unmount /run before dracut to prevent host runtime state from
-        // contaminating the initramfs (dracut --hostonly reads /run)
+        // contaminating the initramfs
         chroot::unmount_run(&self.target)?;
         boot_system.build_initramfs(&self.target)?;
 

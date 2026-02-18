@@ -32,7 +32,7 @@ pub fn setup_chroot(target: &Path) -> Result<()> {
 /// Unmount /run from the chroot target
 ///
 /// Must be called before dracut to prevent host runtime state (e.g. /run/udev,
-/// /run/tmpfiles.d) from being baked into the initramfs via --hostonly.
+/// /run/tmpfiles.d) from being baked into the initramfs.
 pub fn unmount_run(target: &Path) -> Result<()> {
     let path = format!("{}/run", target.to_string_lossy());
     cmd::run("umount", [&path])
