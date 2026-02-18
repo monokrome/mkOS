@@ -41,6 +41,7 @@ fi
 # Step 2: Build new initramfs
 echo "==> Building initramfs for kernel $KVER..."
 dracut --force --hostonly --kver "$KVER" \
+    --omit "systemd systemd-initrd systemd-udevd dracut-systemd" \
     --force-add "dm crypt btrfs" \
     --add-drivers "dm_mod dm_crypt" \
     /boot/initramfs.img

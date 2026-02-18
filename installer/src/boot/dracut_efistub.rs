@@ -139,6 +139,17 @@ impl BootSystem for DracutEfistub {
         let dracut_config = r#"# mkOS dracut configuration
 # Note: hostonly is controlled by command line in hook script
 
+# Omit all systemd dracut modules - mkOS targets non-systemd distributions
+omit_dracutmodules+=" systemd systemd-initrd systemd-udevd dracut-systemd "
+omit_dracutmodules+=" systemd-ac-power systemd-ask-password systemd-battery-check "
+omit_dracutmodules+=" systemd-bsod systemd-coredump systemd-creds systemd-cryptsetup "
+omit_dracutmodules+=" systemd-hostnamed systemd-integritysetup systemd-journald "
+omit_dracutmodules+=" systemd-ldconfig systemd-modules-load systemd-network-management "
+omit_dracutmodules+=" systemd-networkd systemd-pcrphase systemd-portabled systemd-pstore "
+omit_dracutmodules+=" systemd-repart systemd-resolved systemd-sysctl systemd-sysext "
+omit_dracutmodules+=" systemd-timedated systemd-timesyncd systemd-tmpfiles "
+omit_dracutmodules+=" systemd-veritysetup systemd-emergency systemd-sysusers "
+
 # Force modules that return 255 when not on running system
 # mkOS always uses these, even if live USB doesn't have them:
 #   - dm: device mapper (check() always returns 255)
@@ -196,6 +207,8 @@ install_items+=" /etc/crypttab "
                 "--hostonly",
                 "--kver",
                 &kver,
+                "--omit",
+                "systemd systemd-initrd systemd-udevd dracut-systemd",
                 "--force-add",
                 "dm",
                 "--force-add",
@@ -543,6 +556,56 @@ mod tests {
         assert_ne!(main.loader_path, fallback.loader_path);
         assert_ne!(main.loader_path, rescue.loader_path);
         assert_ne!(fallback.loader_path, rescue.loader_path);
+    }
+
+    #[test]
+    fn test_dracut_config_omits_systemd_modules() {
+        let boot = DracutEfistub::new();
+        let target = tempfile::tempdir().unwrap();
+        let config = test_config();
+
+        boot.generate_initramfs_config(target.path(), &config)
+            .unwrap();
+
+        let conf_path = target.path().join("etc/dracut.conf.d/mkos.conf");
+        let content = std::fs::read_to_string(&conf_path).unwrap();
+
+        let required_omits = [
+            "systemd",
+            "systemd-initrd",
+            "systemd-udevd",
+            "dracut-systemd",
+            "systemd-cryptsetup",
+            "systemd-journald",
+        ];
+
+        for module in &required_omits {
+            assert!(
+                content.contains(module),
+                "dracut config should omit {}",
+                module
+            );
+        }
+
+        assert!(content.contains("omit_dracutmodules"));
+    }
+
+    #[test]
+    fn test_dracut_config_still_includes_required_modules() {
+        let boot = DracutEfistub::new();
+        let target = tempfile::tempdir().unwrap();
+        let config = test_config();
+
+        boot.generate_initramfs_config(target.path(), &config)
+            .unwrap();
+
+        let conf_path = target.path().join("etc/dracut.conf.d/mkos.conf");
+        let content = std::fs::read_to_string(&conf_path).unwrap();
+
+        assert!(content.contains("force_add_dracutmodules"));
+        assert!(content.contains("dm crypt btrfs"));
+        assert!(content.contains("dm_mod dm_crypt"));
+        assert!(content.contains("crypttab"));
     }
 
     #[test]
